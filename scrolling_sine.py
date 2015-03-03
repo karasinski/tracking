@@ -27,8 +27,8 @@ def draw_cross():
 
 
 def draw_sin(a, f, x, o=0):
-    return a * math.sin(f * ((x / canvas_width) *
-                        (2 * math.pi) + (speed * time.time()) + o))
+    t = speed * time.time()
+    return a * math.sin(f * ((x / canvas_width) * (2 * math.pi) + t + o))
 
 
 def draw_path(path):
@@ -43,16 +43,28 @@ def draw_path(path):
             path.append(int(y))
 
 
-def create_trail(trail):
+def update_trail(trail):
     _, y = pygame.mouse.get_pos()
     trail.append(y)
     return trail
 
 
 def draw_trail():
-    print(trail)
-    for x in range(trail):
-        print(x)
+    num = int(round(canvas_width / (2 * frequencyA * speed)))
+    recent_trail = trail[-num:-1]
+    for i in range(1, num):
+        try:
+            x = canvas_width / 2 - frequencyA * i * speed
+            # If we've gone off the screen stop drawing
+            if x < 0:
+                print(i, test_num)
+                break
+            y = recent_trail[-i]
+            surface.set_at((int(x), y), BLUE)
+        except IndexError:
+            pass
+        # print(y)
+
 
 # Some config width height settings
 canvas_height = 500
@@ -83,7 +95,7 @@ surface.fill(background_color)
 pygame.mouse.set_visible(False)
 
 # Wave properties
-frequencyA, frequencyB = 2, 6
+frequencyA, frequencyB = 2, 7
 offsetA, offsetB = 0, 17
 amplitudeA, amplitudeB = canvas_height / 3, canvas_height / 6
 speed = 0.2
@@ -104,9 +116,8 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        elif event.type == KEYDOWN:
-            if event.key == K_SPACE:
-                running = False
+        elif event.type == KEYDOWN and event.key == K_SPACE:
+            running = False
 
     clock.tick(FPS)  # do not go faster than this framerate
     # Redraw the background
@@ -118,8 +129,8 @@ while running:
     # Draw features
     draw_drawing_region(drawing_width)
     draw_cross()
-    trail = create_trail(trail)
-    # draw_trail()
+    trail = update_trail(trail)
+    draw_trail()
 
     # Put the surface we draw on, onto the screen
     screen.blit(surface, (0, 0))
