@@ -22,22 +22,22 @@ rcParams['legend.numpoints'] = 1
 
 
 class KalmanFilter(object):
-    def __init__(self, process_variance, estimated_measurement_variance):
+    def __init__(self, process_variance, est_measurement_variance):
         self.process_variance = process_variance
-        self.estimated_measurement_variance = estimated_measurement_variance
-        self.posteri_estimate = 0.0
-        self.posteri_error_estimate = 1.0
+        self.est_measurement_variance = est_measurement_variance
+        self.posteri_est = 0.0
+        self.posteri_error_est = 1.0
 
     def input_latest_noisy_measurement(self, measurement):
-        priori_estimate = self.posteri_estimate
-        priori_error_estimate = self.posteri_error_estimate + self.process_variance
+        priori_est = self.posteri_est
+        priori_error_est = self.posteri_error_est + self.process_variance
 
-        blending_factor = priori_error_estimate / (priori_error_estimate + self.estimated_measurement_variance)
-        self.posteri_estimate = priori_estimate + blending_factor * (measurement - priori_estimate)
-        self.posteri_error_estimate = (1 - blending_factor) * priori_error_estimate
+        gain = priori_error_est / (priori_error_est + self.est_measurement_variance)
+        self.posteri_est = priori_est + gain * (measurement - priori_est)
+        self.posteri_error_est = (1 - gain) * priori_error_est
 
-    def get_latest_estimated_measurement(self):
-        return self.posteri_estimate
+    def get_latest_est_measurement(self):
+        return self.posteri_est
 
 
 class Canvas(object):
@@ -207,20 +207,20 @@ def kalman_plot():
     iteration_count = len(c.trail)
 
     process_variance = 1e2
-    estimated_measurement_variance = np.var(c.trail)
+    est_measurement_variance = np.var(c.trail)
 
-    kalman_filter = KalmanFilter(process_variance, estimated_measurement_variance)
-    posteri_estimate_graph = []
+    kalman_filter = KalmanFilter(process_variance, est_measurement_variance)
+    posteri_est_graph = []
     for iteration in xrange(1, iteration_count):
         kalman_filter.input_latest_noisy_measurement(c.trail[iteration])
-        posteri_estimate_graph.append(kalman_filter.get_latest_estimated_measurement())
+        posteri_est_graph.append(kalman_filter.get_latest_est_measurement())
 
     time = np.linspace(0, len(c.trail) / Canvas.FPS, len(c.trail))
 
     plt.figure()
     plt.subplot(2, 1, 1)
     plt.plot(time, c.trail, color='r', label='Subject')
-    plt.plot(time[1:], posteri_estimate_graph, 'b-', label='Kalman Filter')
+    plt.plot(time[1:], posteri_est_graph, 'b-', label='Kalman Filter')
     plt.plot(time, c.path, color='g', label='Guidance')
     plt.legend(loc='best')
     plt.ylabel('Position [px]')
@@ -228,7 +228,7 @@ def kalman_plot():
 
 
     plt.subplot(2, 1, 2)
-    errs = np.array(c.path[1:]) - np.array(posteri_estimate_graph)
+    errs = np.array(c.path[1:]) - np.array(posteri_est_graph)
     plt.plot(time[1:], errs, 'b-', label='error between truth and kalman')
     plt.legend(loc='best')
     plt.xlabel('Time [s]')
