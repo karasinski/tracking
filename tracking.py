@@ -3,17 +3,50 @@ import pygame
 from pygame.locals import *
 import time
 from array import array
+from matplotlib import rcParams
 import matplotlib.pyplot as plt
 import numpy as np
 
 
+# Font size definitions
+rcParams['font.size'] = 11
+rcParams['font.family'] = 'serif'
+rcParams['font.serif'] = ['Computer Modern Roman']
+
+# Label settings
+rcParams['axes.labelsize'] = 11
+rcParams['xtick.labelsize'] = 11
+rcParams['ytick.labelsize'] = 11
+rcParams['legend.fontsize'] = 11
+rcParams['legend.numpoints'] = 1
+
+
+class KalmanFilter(object):
+    def __init__(self, process_variance, estimated_measurement_variance):
+        self.process_variance = process_variance
+        self.estimated_measurement_variance = estimated_measurement_variance
+        self.posteri_estimate = 0.0
+        self.posteri_error_estimate = 1.0
+
+    def input_latest_noisy_measurement(self, measurement):
+        priori_estimate = self.posteri_estimate
+        priori_error_estimate = self.posteri_error_estimate + self.process_variance
+
+        blending_factor = priori_error_estimate / (priori_error_estimate + self.estimated_measurement_variance)
+        self.posteri_estimate = priori_estimate + blending_factor * (measurement - priori_estimate)
+        self.posteri_error_estimate = (1 - blending_factor) * priori_error_estimate
+
+    def get_latest_estimated_measurement(self):
+        return self.posteri_estimate
+
+
 class Canvas(object):
     # Define the colors we will use in RGB format
-    BLACK = (  0,   0,   0)
+    BLACK = (0,   0,   0)
     WHITE = (255, 255, 255)
-    BLUE  = (  0,   0, 255)
-    GREEN = (  0, 255,   0)
-    RED   = (255,   0,   0)
+    BLUE = (0,   0, 255)
+    GREEN = (0, 255,   0)
+    RED = (255,   0,   0)
 
     # Some config width height settings
     height = 500
@@ -89,8 +122,8 @@ class Canvas(object):
         # Update sine wave
         for x in range(0, Canvas.width):
             y = Canvas.height / 2  # center the line
-            y += self.draw_sin(amplitudeA, frequencyA, x, offsetA)
-            y += self.draw_sin(amplitudeB, frequencyB, x, offsetB)
+            y += self.draw_sin(self.amplitudeA, self.frequencyA, x, self.offsetA)
+            y += self.draw_sin(self.amplitudeB, self.frequencyB, x, self.offsetB)
             self.surface.set_at((x, int(y)), Canvas.RED)
 
             if x == int(Canvas.width / 2):
@@ -101,17 +134,17 @@ class Canvas(object):
         self.trail.append(y)
 
     def draw_trail(self):
-        num = int(round(Canvas.width / (2 * frequencyA * speed)))
+        num = int(round(Canvas.width / (2 * speed)))
         recent_trail = self.trail[-num:-1]
         for i in range(1, num):
             try:
-                x = Canvas.width / 2 - frequencyA * i * speed
+                x = int(round(Canvas.width / 2 - 2.155 * i * speed))
 
                 # If we've gone off the screen stop drawing
                 if x < 0:
                     break
                 y = recent_trail[-i]
-                self.surface.set_at((int(x), y), Canvas.BLUE)
+                self.surface.set_at((x, y), Canvas.BLUE)
             except IndexError:
                 pass
 
@@ -125,7 +158,7 @@ class Canvas(object):
                 elif event.type == KEYDOWN and event.key == K_SPACE:
                     running = False
 
-            clock.tick(Canvas.FPS)  # do not go faster than this framerate
+            self.clock.tick(Canvas.FPS)  # do not go faster than this framerate
             # Redraw the background
             self.surface.fill(Canvas.background_color)
 
@@ -148,17 +181,65 @@ class Canvas(object):
 def error_plot(trail, path):
     t = np.array(trail)
     p = np.array(path)
+
+    t = Canvas.height - t
+    p = Canvas.height - p
     error = t - p
 
-    time = np.linspace(0, len(c.trail)/Canvas.FPS, len(c.trail))
-    plt.plot(time, error, '.')
+    time = np.linspace(0, len(t) / Canvas.FPS, len(t))
+
+    plt.subplot(2, 1, 1)
+    plt.plot(time, error, 'b')
+    plt.xlim(0, time[-1])
+    plt.ylabel('Error [px]')
+
+    plt.subplot(2, 1, 2)
+    plt.plot(time, p, 'g', label='Guidance')
+    plt.plot(time, t, 'r', label='Subject')
+    plt.xlim(0, time[-1])
+    plt.ylabel('Position [px]')
+    plt.xlabel('Time [s]')
+    plt.legend(loc='best')
     plt.show()
 
 
+def kalman_plot():
+    iteration_count = len(c.trail)
+
+    process_variance = 1e2
+    estimated_measurement_variance = np.var(c.trail)
+
+    kalman_filter = KalmanFilter(process_variance, estimated_measurement_variance)
+    posteri_estimate_graph = []
+    for iteration in xrange(1, iteration_count):
+        kalman_filter.input_latest_noisy_measurement(c.trail[iteration])
+        posteri_estimate_graph.append(kalman_filter.get_latest_estimated_measurement())
+
+    time = np.linspace(0, len(c.trail) / Canvas.FPS, len(c.trail))
+
+    plt.figure()
+    plt.subplot(2, 1, 1)
+    plt.plot(time, c.trail, color='r', label='Subject')
+    plt.plot(time[1:], posteri_estimate_graph, 'b-', label='Kalman Filter')
+    plt.plot(time, c.path, color='g', label='Guidance')
+    plt.legend(loc='best')
+    plt.ylabel('Position [px]')
+    plt.xlim(time[1], time[-1])
+
+
+    plt.subplot(2, 1, 2)
+    errs = np.array(c.path[1:]) - np.array(posteri_estimate_graph)
+    plt.plot(time[1:], errs, 'b-', label='error between truth and kalman')
+    plt.legend(loc='best')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Position [px]')
+    plt.xlim(time[1], time[-1])
+    plt.show()
+
 # Wave properties
-frequencyA, frequencyB = 2, 7
+frequencyA, frequencyB = 1.2, 3.7
 offsetA, offsetB = 3, 17
-amplitudeA, amplitudeB = Canvas.height / 3 - 20, Canvas.height / 6 - 20
+amplitudeA, amplitudeB = Canvas.height / 3 - 20, Canvas.height / 5 - 20
 speed = 0.2
 
 # Other simulation properties
@@ -171,3 +252,5 @@ c = Canvas(frequencyA, frequencyB,
            speed,
            drawing_width)
 c.simulation()
+error_plot(c.trail, c.path)
+kalman_plot()
