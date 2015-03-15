@@ -1,256 +1,132 @@
 from __future__ import division, print_function
-import pygame
-from pygame.locals import *
-import time
-from array import array
-from matplotlib import rcParams
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+import matplotlib.patches as patches
 import numpy as np
+from array import array
 
 
-# Font size definitions
-rcParams['font.size'] = 11
-rcParams['font.family'] = 'serif'
-rcParams['font.serif'] = ['Computer Modern Roman']
+class Cursor:
+    def __init__(self, ax):
+        self.lx = ax.axhline(color='k', animated=True)
+        self.ly = ax.axvline(color='k', animated=True)
 
-# Label settings
-rcParams['axes.labelsize'] = 11
-rcParams['xtick.labelsize'] = 11
-rcParams['ytick.labelsize'] = 11
-rcParams['legend.fontsize'] = 11
-rcParams['legend.numpoints'] = 1
+        self.ly.set_xdata(ax.get_xlim()[1]/2)
+        self.lx.set_ydata(0)
 
+        # Text location in axes coords
+        self.txt = ax.text(0.45, 0.95, '', transform=ax.transAxes, animated=True)
 
-class KalmanFilter(object):
-    def __init__(self, process_variance, est_measurement_variance):
-        self.process_variance = process_variance
-        self.est_measurement_variance = est_measurement_variance
-        self.posteri_est = 0.0
-        self.posteri_error_est = 1.0
+        # Connect
+        plt.connect('motion_notify_event', self.mouse_move)
 
-    def input_latest_noisy_measurement(self, measurement):
-        priori_est = self.posteri_est
-        priori_error_est = self.posteri_error_est + self.process_variance
+    def mouse_move(self, event):
+        if not event.inaxes:
+            return
 
-        gain = priori_error_est / (priori_error_est + self.est_measurement_variance)
-        self.posteri_est = priori_est + gain * (measurement - priori_est)
-        self.posteri_error_est = (1 - gain) * priori_error_est
-
-    def get_latest_est_measurement(self):
-        return self.posteri_est
+        y = event.ydata
+        self.lx.set_ydata(y)
 
 
-class Canvas(object):
-    # Define the colors we will use in RGB format
-    BLACK = (0,   0,   0)
-    WHITE = (255, 255, 255)
-    BLUE = (0,   0, 255)
-    GREEN = (0, 255,   0)
-    RED = (255,   0,   0)
+class Tracker(object):
+    def __init__(self, ax, left=1., right=1.):
+        self.time = 0.
+        self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
+        self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
+        self.cursor = Cursor(ax)
 
-    # Some config width height settings
-    height = 500
-    width = int(height * 1.61803398875)
-    background_color = WHITE
-    FPS = 60
+        self.ys, self.ygs = array('f'), array('f')
 
-    def __init__(self, frequencyA, frequencyB,
-                 offsetA, offsetB,
-                 amplitudeA, amplitudeB,
-                 speed,
-                 drawing_width):
+        half_width = ax.get_xlim()[1]/2
+        left_covered = half_width - left * half_width
+        right_covered = half_width + right * half_width
+        self.patchL = patches.Rectangle((0, -1.1),
+                                        left_covered, 2.2,
+                                        facecolor='black', alpha=1,
+                                        animated=True)
+        self.patchR = patches.Rectangle((right_covered, -1.1),
+                                        half_width, 2.2,
+                                        facecolor='black', alpha=1,
+                                        animated=True)
+        ax.add_patch(self.patchL)
+        ax.add_patch(self.patchR)
 
-        # Path properties
-        self.frequencyA = frequencyA
-        self.frequencyB = frequencyB
-        self.offsetA = offsetA
-        self.offsetB = offsetB
-        self.amplitudeA = amplitudeA
-        self.amplitudeB = amplitudeB
-        self.speed = speed
+        plt.setp(ax.get_xticklabels(), visible=False)
+        plt.setp(ax.get_yticklabels(), visible=False)
+        fig.canvas.mpl_connect('key_press_event', self.press)
 
-        # Other simulation properties
-        self.drawing_width = drawing_width
+    def __call__(self, time):
+        self.time = time / 100.
 
-        # Create a trail array
-        self.trail, self.path = array('i'), array('i')
+        # Log cursor position
+        self.ys.append(self.cursor.lx.get_ydata())
+        self.ygs.append(self.guidance.get_ydata()[half_w])
 
-        # Create Pygame clock object
-        self.clock = pygame.time.Clock()
+        # Update guidance, plot recent data
+        curr_range = x[time:window + time]
+        self.guidance.set_ydata(func(curr_range))
 
-        # Init pygame
-        pygame.init()
+        recent = np.zeros(half_w)
+        recent[half_w-len(self.ys[-half_w:]):] += self.ys[-half_w:]
+        self.actual.set_ydata(recent)
 
-        # Set the window title
-        pygame.display.set_caption("Tracking Experiment")
+        err = self.ys[-1] - self.ygs[-1]
+        self.cursor.txt.set_text('y=%1.2f, err=%1.2f' % (self.ys[-1], err))
 
-        # Make a screen to see
-        self.screen = pygame.display.set_mode((Canvas.width, Canvas.height))
-        self.screen.fill(Canvas.background_color)
+        # Close when the simulation is over
+        if self.time >= length - 0.01:
+            plt.close()
 
-        # Make a surface to draw on
-        self.surface = pygame.Surface((Canvas.width, Canvas.height))
-        self.surface.fill(Canvas.background_color)
+        # List of things to be updated
+        return [self.guidance, self.actual,
+                self.patchL, self.patchR,
+                self.cursor.lx, self.cursor.ly, self.cursor.txt]
 
-        # Disable mouse visbility
-        pygame.mouse.set_visible(False)
+    def press(self, event):
+        plt.close()
 
-    def draw_drawing_region(self):
-        width = self.drawing_width
-        pygame.draw.line(self.surface, Canvas.BLACK,
-                         [Canvas.width / 2 - width, 0],
-                         [Canvas.width / 2 - width, Canvas.height], 2)
-        pygame.draw.line(self.surface, Canvas.BLACK,
-                         [Canvas.width / 2 + width, 0],
-                         [Canvas.width / 2 + width, Canvas.height], 2)
-
-    def draw_cross(self):
-        _, y = pygame.mouse.get_pos()
-
-        pygame.draw.line(self.surface, Canvas.BLACK,
-                         [Canvas.width / 2, y - 5],
-                         [Canvas.width / 2, y + 5], 1)
-        pygame.draw.line(self.surface, Canvas.BLACK,
-                         [Canvas.width / 2 - 5, y],
-                         [Canvas.width / 2 + 5, y], 1)
-
-    def draw_sin(self, a, f, x, o=0):
-        t = self.speed * time.time()
-        return a * np.sin(f * ((x / Canvas.width) * (2 * np.pi) + t + o))
-
-    def draw_path(self):
-        # Update sine wave
-        for x in range(0, Canvas.width):
-            y = Canvas.height / 2  # center the line
-            y += self.draw_sin(self.amplitudeA, self.frequencyA, x, self.offsetA)
-            y += self.draw_sin(self.amplitudeB, self.frequencyB, x, self.offsetB)
-            self.surface.set_at((x, int(y)), Canvas.RED)
-
-            if x == int(Canvas.width / 2):
-                self.path.append(int(y))
-
-    def update_trail(self):
-        _, y = pygame.mouse.get_pos()
-        self.trail.append(y)
-
-    def draw_trail(self):
-        num = int(round(Canvas.width / (2 * speed)))
-        recent_trail = self.trail[-num:-1]
-        for i in range(1, num):
-            try:
-                x = int(round(Canvas.width / 2 - 2.155 * i * speed))
-
-                # If we've gone off the screen stop drawing
-                if x < 0:
-                    break
-                y = recent_trail[-i]
-                self.surface.set_at((x, y), Canvas.BLUE)
-            except IndexError:
-                pass
-
-    def simulation(self):
-        # Simple main loop
-        running = True
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == KEYDOWN and event.key == K_SPACE:
-                    running = False
-
-            self.clock.tick(Canvas.FPS)  # do not go faster than this framerate
-            # Redraw the background
-            self.surface.fill(Canvas.background_color)
-
-            # Draw the path
-            self.draw_path()
-
-            # Draw features
-            self.draw_drawing_region()
-            self.draw_cross()
-            self.update_trail()
-            self.draw_trail()
-
-            # Put the surface we draw on, onto the screen
-            self.screen.blit(self.surface, (0, 0))
-
-            # Show it
-            pygame.display.flip()
+    def results(self):
+        return np.array(self.ys), np.array(self.ygs)
 
 
-def error_plot(trail, path):
-    t = np.array(trail)
-    p = np.array(path)
+def func(t):
+    frequencyA, frequencyB = 0.6, 1.7
+    offsetA, offsetB = 3, 17
+    amplitudeA, amplitudeB = .8, .2
 
-    t = Canvas.height - t
-    p = Canvas.height - p
-    error = t - p
-
-    time = np.linspace(0, len(t) / Canvas.FPS, len(t))
-
-    plt.subplot(2, 1, 1)
-    plt.plot(time, error, 'b')
-    plt.xlim(0, time[-1])
-    plt.ylabel('Error [px]')
-
-    plt.subplot(2, 1, 2)
-    plt.plot(time, p, 'g', label='Guidance')
-    plt.plot(time, t, 'r', label='Subject')
-    plt.xlim(0, time[-1])
-    plt.ylabel('Position [px]')
-    plt.xlabel('Time [s]')
-    plt.legend(loc='best')
-    plt.show()
+    f = draw_sin(t, a=amplitudeA, f=frequencyA, o=offsetA)
+    f += draw_sin(t, a=amplitudeB, f=frequencyB, o=offsetB)
+    f = f / max(abs(f))
+    return f
 
 
-def kalman_plot():
-    iteration_count = len(c.trail)
-
-    process_variance = 1e2
-    est_measurement_variance = np.var(c.trail)
-
-    kalman_filter = KalmanFilter(process_variance, est_measurement_variance)
-    posteri_est_graph = []
-    for iteration in xrange(1, iteration_count):
-        kalman_filter.input_latest_noisy_measurement(c.trail[iteration])
-        posteri_est_graph.append(kalman_filter.get_latest_est_measurement())
-
-    time = np.linspace(0, len(c.trail) / Canvas.FPS, len(c.trail))
-
-    plt.figure()
-    plt.subplot(2, 1, 1)
-    plt.plot(time, c.trail, color='r', label='Subject')
-    plt.plot(time[1:], posteri_est_graph, 'b-', label='Kalman Filter')
-    plt.plot(time, c.path, color='g', label='Guidance')
-    plt.legend(loc='best')
-    plt.ylabel('Position [px]')
-    plt.xlim(time[1], time[-1])
+def draw_sin(t, a=1, f=1, o=0):
+    return a * np.sin(f * (t + o))
 
 
-    plt.subplot(2, 1, 2)
-    errs = np.array(c.path[1:]) - np.array(posteri_est_graph)
-    plt.plot(time[1:], errs, 'b-', label='error between truth and kalman')
-    plt.legend(loc='best')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Position [px]')
-    plt.xlim(time[1], time[-1])
-    plt.show()
+# Create a plot
+fig, ax = plt.subplots(figsize=(16, 9))
+plt.ylim(-1.1, 1.1)
 
-# Wave properties
-frequencyA, frequencyB = 1.2, 3.7
-offsetA, offsetB = 3, 17
-amplitudeA, amplitudeB = Canvas.height / 3 - 20, Canvas.height / 5 - 20
-speed = 0.2
+# Build our guidance to follow
+x = np.linspace(0 * np.pi, 40 * np.pi, 10000)
 
-# Other simulation properties
-drawing_width = 50
+window = 1000
+half_w = int(window/2)
+plt.xlim(x[0], x[window])
 
-# Start the simulation
-c = Canvas(frequencyA, frequencyB,
-           offsetA, offsetB,
-           amplitudeA, amplitudeB,
-           speed,
-           drawing_width)
-c.simulation()
-error_plot(c.trail, c.path)
-kalman_plot()
+# Create cursor and tracker
+tracker = Tracker(ax, left=1, right=1)
+
+# Config animation
+FPS, length = 60, 10
+anim = FuncAnimation(fig, tracker,
+                     frames=100 * length, interval=1000./FPS,
+                     blit=True, repeat=False)
+plt.show()
+
+# Show results
+y, yg = tracker.results()
+plt.plot(y)
+plt.plot(yg)
+plt.show()
