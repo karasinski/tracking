@@ -9,7 +9,7 @@ from array import array
 class Cursor:
     def __init__(self, ax):
         self.lx = ax.axhline(xmin=.475, xmax=.525, color='r', animated=True)
-        self.ly = ax.axvline(color='r', animated=True)
+        self.ly = ax.axvline(ymin=.475, ymax=.525, color='r', animated=True)
 
         self.ly.set_xdata(ax.get_xlim()[1]/2)
         self.lx.set_ydata(0)
@@ -28,6 +28,10 @@ class Cursor:
         y = event.ydata
         self.lx.set_ydata(y)
 
+        scale = 2 * ax.get_ylim()[1]
+        location = y / scale + 0.5
+        self.ly.set_ydata([location - .025, location + .025])
+
 
 class Tracker(object):
     def __init__(self, ax, left=1., right=1.):
@@ -41,19 +45,21 @@ class Tracker(object):
         half_width = ax.get_xlim()[1]/2
         left_covered = half_width - left * half_width
         right_covered = half_width + right * half_width
-        self.patchL = patches.Rectangle((0, -1.1),
-                                        left_covered, 2.2,
-                                        facecolor='black', alpha=1,
+        self.patchL = patches.Rectangle((0.01, -1.),
+                                        left_covered, 2.05,
+                                        color='white',
                                         animated=True)
-        self.patchR = patches.Rectangle((right_covered, -1.1),
-                                        half_width, 2.2,
-                                        facecolor='black', alpha=1,
+        self.patchR = patches.Rectangle((right_covered, -1.),
+                                        half_width, 2.05,
+                                        color='white',
                                         animated=True)
         ax.add_patch(self.patchL)
         ax.add_patch(self.patchR)
 
         plt.setp(ax.get_xticklabels(), visible=False)
+        plt.gca().xaxis.set_major_locator(plt.NullLocator())
         plt.setp(ax.get_yticklabels(), visible=False)
+        plt.gca().yaxis.set_major_locator(plt.NullLocator())
         fig.canvas.mpl_connect('key_press_event', self.press)
 
     def __call__(self, time):
@@ -120,6 +126,7 @@ plt.xlim(x[0], x[window])
 
 # Create cursor and tracker
 tracker = Tracker(ax, left=.8, right=.0)
+# tracker = Tracker(ax)
 
 # Config animation
 FPS, length = 60, 20
