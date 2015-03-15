@@ -8,14 +8,15 @@ from array import array
 
 class Cursor:
     def __init__(self, ax):
-        self.lx = ax.axhline(color='k', animated=True)
-        self.ly = ax.axvline(color='k', animated=True)
+        self.lx = ax.axhline(xmin=.475, xmax=.525, color='r', animated=True)
+        self.ly = ax.axvline(color='r', animated=True)
 
         self.ly.set_xdata(ax.get_xlim()[1]/2)
         self.lx.set_ydata(0)
 
         # Text location in axes coords
-        self.txt = ax.text(0.45, 0.95, '', transform=ax.transAxes, animated=True)
+        self.txt = ax.text(0.45, 0.95, '',
+                           transform=ax.transAxes, animated=True)
 
         # Connect
         plt.connect('motion_notify_event', self.mouse_move)
@@ -74,13 +75,15 @@ class Tracker(object):
         self.cursor.txt.set_text('y=%1.2f, err=%1.2f' % (self.ys[-1], err))
 
         # Close when the simulation is over
-        if self.time >= length - 0.01:
+        if time >= length * FPS:
             plt.close()
 
         # List of things to be updated
         return [self.guidance, self.actual,
                 self.patchL, self.patchR,
-                self.cursor.lx, self.cursor.ly, self.cursor.txt]
+                self.cursor.lx, self.cursor.ly,
+                # self.cursor.txt
+                ]
 
     def press(self, event):
         plt.close()
@@ -92,7 +95,7 @@ class Tracker(object):
 def func(t):
     frequencyA, frequencyB = 0.6, 1.7
     offsetA, offsetB = 3, 17
-    amplitudeA, amplitudeB = .8, .2
+    amplitudeA, amplitudeB = .6, .2
 
     f = draw_sin(t, a=amplitudeA, f=frequencyA, o=offsetA)
     f += draw_sin(t, a=amplitudeB, f=frequencyB, o=offsetB)
@@ -116,17 +119,21 @@ half_w = int(window/2)
 plt.xlim(x[0], x[window])
 
 # Create cursor and tracker
-tracker = Tracker(ax, left=1, right=1)
+tracker = Tracker(ax, left=.8, right=.0)
 
 # Config animation
-FPS, length = 60, 10
+FPS, length = 60, 20
 anim = FuncAnimation(fig, tracker,
-                     frames=100 * length, interval=1000./FPS,
+                     frames=(length+1)*FPS, interval=1000./FPS,
                      blit=True, repeat=False)
+
 plt.show()
 
 # Show results
 y, yg = tracker.results()
-plt.plot(y)
-plt.plot(yg)
+t = np.linspace(0, len(y)/FPS, len(y))
+plt.plot(t, y, label='Subject')
+plt.plot(t, yg, label='Guidance')
+plt.xlim(0, t[-1])
+plt.legend()
 plt.show()
