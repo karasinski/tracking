@@ -5,6 +5,7 @@ import matplotlib.patches as patches
 import numpy as np
 from array import array
 import os
+import pygame
 
 
 UNINITIALIZED = 0
@@ -14,22 +15,26 @@ FINISHED = 3
 
 
 class Cursor(object):
-    def __init__(self, ax):
+    def __init__(self, ax, use_joystick=False):
+        self.use_joystick = use_joystick
         self.lx = ax.axhline(xmin=.475, xmax=.525, color='r', animated=True)
         self.ly = ax.axvline(ymin=.475, ymax=.525, color='r', animated=True)
 
         self.ly.set_xdata(ax.get_xlim()[1]/2)
         self.lx.set_ydata(0)
 
-        # Text location in axes coords
-        self.txt = ax.text(0.45, 0.95, '',
-                           transform=ax.transAxes, animated=True)
-
         # Connect
-        plt.connect('motion_notify_event', self.mouse_move)
+        if use_joystick:
+            try:
+                self.joystick = Joystick()
+            except Exception:
+                print('Joystick initialization failed, falling back to mouse.')
+                self.use_joystick = False
+                plt.connect('motion_notify_event', self.mouse_move)
+        else:
+            plt.connect('motion_notify_event', self.mouse_move)
 
     def mouse_move(self, event):
-        print('movin')
         if not event.inaxes:
             return
 
@@ -38,16 +43,44 @@ class Cursor(object):
 
         scale = 2 * ax.get_ylim()[1]
         location = y / scale + 0.5
-        print(location)
         self.ly.set_ydata([location - .025, location + .025])
+
+    def update(self):
+        if self.use_joystick:
+            velocity = self.joystick.input()
+            location = np.mean(self.ly.get_ydata())
+            print('loc: ', location)
+            location += velocity / 10.
+            self.ly.set_ydata([location - .025, location + .025])
+
+
+class Joystick(object):
+    def __init__(self):
+        pygame.init()
+        pygame.joystick.init()
+
+        self.joystick = pygame.joystick.Joystick(0)
+        self.joystick.init()
+
+    def input(self):
+        '''
+        We're working with a 3dconnexion Wireless SpaceMouse.
+
+        Axis 3 is the forward/back tilt axis, axis 1 is the same for push.
+        '''
+
+        axis = self.joystick.get_axis(3)
+        print(self.joystick.get_name())
+        print('ax: ', axis)
+        return axis
 
 
 class StoplightMetric(object):
-    def __init__(self, ax):
+    def __init__(self, ax, span=60):
         self.ax = ax
         self.errs = []
         self.greens, self.yellows = [], []
-        self.span = 60  # average over 60 measurements @ 60FPS = 1 second
+        self.span = span  # average over 60 measurements @ 60FPS = 1 second
         self.error = ax.plot(x[:window], np.zeros(window), animated=True, color='k')[0]
 
     def update(self, new_measurement):
@@ -96,13 +129,14 @@ class StoplightMetric(object):
 
 
 class Tracker(object):
-    def __init__(self, ax, statsax, left=1., right=1.):
+    def __init__(self, ax, statsax,
+                 use_joystick=False, left=1., right=1., span=60):
         self.status = 0
         self.time = 0.
         self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
         self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
-        self.cursor = Cursor(ax)
-        self.stoplight = StoplightMetric(statsax)
+        self.cursor = Cursor(ax, use_joystick=use_joystick)
+        self.stoplight = StoplightMetric(statsax, span=span)
 
         self.ys, self.ygs = array('f'), array('f')
 
@@ -127,6 +161,8 @@ class Tracker(object):
         fig.canvas.mpl_connect('key_press_event', self.press)
 
     def __call__(self, time):
+        self.cursor.update()
+
         if self.status == INITIALIZED:
             self.time += 1
 
@@ -135,7 +171,6 @@ class Tracker(object):
             self.ygs.append(self.guidance.get_ydata()[half_w])
 
             err = self.ys[-1] - self.ygs[-1]
-            self.cursor.txt.set_text('y=%1.2f, err=%1.2f' % (self.ys[-1], err))
 
             self.stoplight.update(err)
 
@@ -158,7 +193,6 @@ class Tracker(object):
                 self.cursor.lx, self.cursor.ly,
                 self.stoplight.ax,
                 self.stoplight.error,
-                # self.cursor.txt
                 ]
 
     def press(self, event):
@@ -288,7 +322,13 @@ half_w = int(window/2)
 ax.set_xlim(x[0], x[window])
 
 # Create cursor and tracker
-tracker = Tracker(ax, statsax, left=.8, right=.2)
+kwds = {'use_joystick': True,
+        'left': .8,
+        'right': .2,
+        'span': 60
+        }
+
+tracker = Tracker(ax, statsax, **kwds)
 # tracker = Tracker(ax)
 
 # Config animation
