@@ -7,6 +7,12 @@ from array import array
 import os
 
 
+UNINITIALIZED = 0
+INITIALIZED = 1
+EXIT = 2
+FINISHED = 3
+
+
 class Cursor(object):
     def __init__(self, ax):
         self.lx = ax.axhline(xmin=.475, xmax=.525, color='r', animated=True)
@@ -23,6 +29,7 @@ class Cursor(object):
         plt.connect('motion_notify_event', self.mouse_move)
 
     def mouse_move(self, event):
+        print('movin')
         if not event.inaxes:
             return
 
@@ -31,6 +38,7 @@ class Cursor(object):
 
         scale = 2 * ax.get_ylim()[1]
         location = y / scale + 0.5
+        print(location)
         self.ly.set_ydata([location - .025, location + .025])
 
 
@@ -89,6 +97,7 @@ class StoplightMetric(object):
 
 class Tracker(object):
     def __init__(self, ax, statsax, left=1., right=1.):
+        self.status = 0
         self.time = 0.
         self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
         self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
@@ -118,28 +127,30 @@ class Tracker(object):
         fig.canvas.mpl_connect('key_press_event', self.press)
 
     def __call__(self, time):
-        self.time = time / 100.
+        if self.status == INITIALIZED:
+            self.time += 1
 
-        # Log cursor position
-        self.ys.append(self.cursor.lx.get_ydata())
-        self.ygs.append(self.guidance.get_ydata()[half_w])
+            # Log cursor position
+            self.ys.append(self.cursor.lx.get_ydata())
+            self.ygs.append(self.guidance.get_ydata()[half_w])
 
-        # Update guidance, plot recent data
-        curr_range = x[time:window + time]
-        self.guidance.set_ydata(func(curr_range))
+            # Update guidance, plot recent data
+            curr_range = x[self.time:window + self.time]
+            self.guidance.set_ydata(func(curr_range))
 
-        recent = np.zeros(half_w)
-        recent[half_w-len(self.ys[-half_w:]):] += self.ys[-half_w:]
-        self.actual.set_ydata(recent)
+            recent = np.zeros(half_w)
+            recent[half_w-len(self.ys[-half_w:]):] += self.ys[-half_w:]
+            self.actual.set_ydata(recent)
 
-        err = self.ys[-1] - self.ygs[-1]
-        self.cursor.txt.set_text('y=%1.2f, err=%1.2f' % (self.ys[-1], err))
+            err = self.ys[-1] - self.ygs[-1]
+            self.cursor.txt.set_text('y=%1.2f, err=%1.2f' % (self.ys[-1], err))
 
-        self.stoplight.update(err)
+            self.stoplight.update(err)
 
-        # Close when the simulation is over
-        if time >= length * FPS:
-            plt.close()
+            # Close when the simulation is over
+            if self.time >= length * FPS:
+                self.status = FINISHED
+                plt.close()
 
         # List of things to be updated
         return [self.guidance, self.actual,
@@ -151,7 +162,11 @@ class Tracker(object):
                 ]
 
     def press(self, event):
-        plt.close()
+        if self.status == UNINITIALIZED:
+            self.status = INITIALIZED
+        elif self.status == INITIALIZED:
+            self.status = EXIT
+            plt.close()
 
     def results(self):
         return np.array(self.ys), np.array(self.ygs)
@@ -279,7 +294,7 @@ tracker = Tracker(ax, statsax, left=.8, right=.2)
 # Config animation
 FPS, length = 60, 20
 anim = FuncAnimation(fig, tracker,
-                     frames=(length+1)*FPS, interval=1000./FPS,
+                     interval=1000./FPS,
                      blit=True, repeat=False)
 
 plt.show()
