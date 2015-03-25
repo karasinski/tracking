@@ -134,14 +134,6 @@ class Tracker(object):
             self.ys.append(self.cursor.lx.get_ydata())
             self.ygs.append(self.guidance.get_ydata()[half_w])
 
-            # Update guidance, plot recent data
-            curr_range = x[self.time:window + self.time]
-            self.guidance.set_ydata(func(curr_range))
-
-            recent = np.zeros(half_w)
-            recent[half_w-len(self.ys[-half_w:]):] += self.ys[-half_w:]
-            self.actual.set_ydata(recent)
-
             err = self.ys[-1] - self.ygs[-1]
             self.cursor.txt.set_text('y=%1.2f, err=%1.2f' % (self.ys[-1], err))
 
@@ -151,6 +143,14 @@ class Tracker(object):
             if self.time >= length * FPS:
                 self.status = FINISHED
                 plt.close()
+
+        # Update guidance, plot recent data
+        curr_range = x[self.time:window + self.time]
+        self.guidance.set_ydata(func(curr_range))
+
+        recent = np.zeros(half_w)
+        recent[half_w-len(self.ys[-half_w:]):] += self.ys[-half_w:]
+        self.actual.set_ydata(recent)
 
         # List of things to be updated
         return [self.guidance, self.actual,
