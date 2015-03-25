@@ -4,8 +4,8 @@ from matplotlib.animation import FuncAnimation
 import matplotlib.patches as patches
 import numpy as np
 from array import array
-import os
 import pygame
+import plots
 
 
 UNINITIALIZED = 0
@@ -17,6 +17,7 @@ FINISHED = 3
 class Cursor(object):
     def __init__(self, ax, use_joystick=False):
         self.use_joystick = use_joystick
+        self.ax = ax
         self.lx = ax.axhline(xmin=.475, xmax=.525, color='r', animated=True)
         self.ly = ax.axvline(ymin=.475, ymax=.525, color='r', animated=True)
 
@@ -41,7 +42,7 @@ class Cursor(object):
         y = event.ydata
         self.lx.set_ydata(y)
 
-        scale = 2 * ax.get_ylim()[1]
+        scale = 2 * self.ax.get_ylim()[1]
         location = y / scale + 0.5
         self.ly.set_ydata([location - .025, location + .025])
 
@@ -81,7 +82,8 @@ class StoplightMetric(object):
         self.errs = []
         self.greens, self.yellows = [], []
         self.span = span  # average over 60 measurements @ 60FPS = 1 second
-        self.error = ax.plot(x[:window], np.zeros(window), animated=True, color='k')[0]
+        self.error = ax.plot(x[:window], np.zeros(window),
+                             animated=True, color='k')[0]
 
     def update(self, new_measurement):
         self.errs.append(new_measurement)
@@ -108,10 +110,10 @@ class StoplightMetric(object):
         self.yellows.append(yellow.mean())
 
     def drawColors(self):
-        # Flip our percentages
         greens = np.array(self.greens)[1:]
         yellows = np.array(self.yellows)[1:]
 
+        # Check the latest value and find the largest--this is inefficient
         try:
             red = 1 - yellows[-1]
             yellow = yellows[-1] - greens[-1]
@@ -129,27 +131,25 @@ class StoplightMetric(object):
 
 
 class Tracker(object):
-    def __init__(self, ax, statsax,
-                 use_joystick=False, left=1., right=1., span=60):
-        self.status = 0
-        self.time = 0.
-        self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
-        self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
-        self.cursor = Cursor(ax, use_joystick=use_joystick)
-        self.stoplight = StoplightMetric(statsax, span=span)
-
-        self.ys, self.ygs = array('f'), array('f')
+    def __init__(self, fig, ax, statsax,
+                 use_joystick=False,
+                 left=1., right=1.,
+                 span=60, length=20, FPS=60):
+        # Set some limits
+        ax.set_ylim(-1.1, 1.1)
+        statsax.set_ylim(-1.1, 1.1)
+        ax.set_xlim(x[0], x[window])
 
         # Add blockers on left and right
         half_width = ax.get_xlim()[1]/2
         left_covered = half_width - left * half_width
         right_covered = half_width + right * half_width
         self.patchL = patches.Rectangle((0.01, -1.),
-                                        left_covered, 2.1,
+                                        left_covered, 2.09,
                                         color='white',
                                         animated=True)
         self.patchR = patches.Rectangle((right_covered, -1.),
-                                        half_width, 2.1,
+                                        half_width, 2.09,
                                         color='white',
                                         animated=True)
         ax.add_patch(self.patchL)
@@ -159,6 +159,16 @@ class Tracker(object):
         ax.set_xticklabels([], visible=False), ax.set_xticks([])
         ax.set_yticklabels([], visible=False), ax.set_yticks([])
         fig.canvas.mpl_connect('key_press_event', self.press)
+
+        # Finally initialize simulation
+        self.status = 0
+        self.time = 0.
+        self.end_time = length * FPS
+        self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
+        self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
+        self.cursor = Cursor(ax, use_joystick=use_joystick)
+        self.stoplight = StoplightMetric(statsax, span=span)
+        self.ys, self.ygs = array('f'), array('f')
 
     def __call__(self, time):
         self.cursor.update()
@@ -175,7 +185,7 @@ class Tracker(object):
             self.stoplight.update(err)
 
             # Close when the simulation is over
-            if self.time >= length * FPS:
+            if self.time >= self.end_time:
                 self.status = FINISHED
                 plt.close()
 
@@ -221,132 +231,41 @@ def draw_sin(t, a=1, f=1, o=0):
     return a * np.sin(f * (t + o))
 
 
-def GenColors(d, span=60):
-    # Find first and last indices
-    last = len(d)
-    first = 0
+def RunExperiment():
+    # Create a plot
+    fig, (ax, statsax) = plt.subplots(nrows=2, figsize=(8, 9), sharex=True)
 
-    epsilon = d[:, 1] - d[:, 2]
+    # Create cursor and tracker
+    kwds = {'use_joystick': True,
+            'left': .8,
+            'right': .2,
+            'span': 60,
+            'length': 20,
+            'FPS': 60
+            }
+    # Configure animation
+    tracker = Tracker(fig, ax, statsax, **kwds)
 
-    greens, yellows = [], []
-    for t in xrange(first, last + 1):
-        if t - span < first:
-            low = first
-        else:
-            low = t - span
+    # This needs to be assigned so it can hang around to get called right below
+    anim = FuncAnimation(fig, tracker,
+                         interval=1000./kwds['FPS'],
+                         blit=True, repeat=False)
 
-        green = abs(epsilon[low:t + 1]) < .05
-        green = green.mean()
-        yellow = abs(epsilon[low:t + 1]) < .15
-        yellow = yellow.mean()
+    # Start animation
+    plt.show()
 
-        greens.append(green), yellows.append(yellow)
+    # Show results
+    y, yg = tracker.results()
+    t = np.linspace(0, len(y)/kwds['FPS'], len(y))
+    d = np.vstack((t, y, yg)).T
 
-    return greens, yellows
+    plots.Performance(d)
+    plots.ShortLongColor('test', d)
 
-
-def ShortLongColors(subj, d, short_span=60, long_span=10000, save=False):
-    short_g, short_y = GenColors(d, short_span)
-    long_g, long_y = GenColors(d, long_span)
-
-    GenColorPlot(subj, d, short_g, short_y, long_g, long_y, save)
-
-
-def GenColorPlot(subj, d, short_g, short_y, long_g, long_y, save):
-    time = d[:, 0]
-    epsilon = d[:, 1] - d[:, 2]
-
-    # Flip our percentages
-    short_g = 1 - np.array(short_g)[1:]
-    short_y = 1 - np.array(short_y)[1:]
-    long_g = 1 - np.array(long_g)[1:]
-    long_y = 1 - np.array(long_y)[1:]
-
-    # Plot short duration map
-    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-    ax1.fill_between(time, 0, short_y,       color='r', facecolor='red')
-    ax1.fill_between(time, short_y, short_g, color='y', facecolor='yellow')
-    ax1.fill_between(time, short_g, 1,       color='g', facecolor='green')
-    ax1.set_ylim([0, 1])
-    plt.setp(ax1.get_yticklabels(), visible=False)
-
-    # Add Error plot on top
-    ax1twinx = ax1.twinx()
-    # plt.plot(time, abs(pd.rolling_mean(epsilon, span)), 'k--')
-    plt.plot(time, abs(epsilon), 'k')
-    ax1twinx.set_ylabel('$|Error|$', color='k')
-    for tl in ax1twinx.get_yticklabels():
-        tl.set_color('k')
-    plt.xlim([time[0], time[-1]])
-    ax1twinx.set_ylim(bottom=0)
-    plt.title(subj)
-
-    # Plot long duration map
-    ax2.fill_between(time, 0, long_y,      color='r', facecolor='red')
-    ax2.fill_between(time, long_y, long_g, color='y', facecolor='yellow')
-    ax2.fill_between(time, long_g, 1,      color='g', facecolor='green')
-    ax2.set_ylim(0, 1)
-    plt.setp(ax2.get_yticklabels(), visible=False)
-    plt.xlim([time[0], time[-1]])
-    ax2.set_xlabel('Time (s)')
-    plt.tight_layout()
-    save_fig('Metric X - ' + subj, save)
-
-
-def save_fig(save_name, save):
-    save_name = save_name.replace("$", "") + '.pdf'
-
-    # Show it or save it
-    if not save:
-        plt.show()
-    else:
-        try:
-            os.mkdir('figures')
-        except Exception:
-            pass
-
-        plt.savefig('figures/' + save_name, bbox_inches='tight')
-    plt.close()
-
-
-# Create a plot
-fig, (ax, statsax) = plt.subplots(nrows=2, figsize=(8, 9), sharex=True)
-ax.set_ylim(-1.1, 1.1)
-statsax.set_ylim(-1.1, 1.1)
-
-# Build our guidance to follow
+# A couple global parameters
 x = np.linspace(0 * np.pi, 40 * np.pi, 10000)
-
 window = 1000
 half_w = int(window/2)
-ax.set_xlim(x[0], x[window])
 
-# Create cursor and tracker
-kwds = {'use_joystick': True,
-        'left': .8,
-        'right': .2,
-        'span': 60
-        }
-
-tracker = Tracker(ax, statsax, **kwds)
-# tracker = Tracker(ax)
-
-# Config animation
-FPS, length = 60, 20
-anim = FuncAnimation(fig, tracker,
-                     interval=1000./FPS,
-                     blit=True, repeat=False)
-
-plt.show()
-
-# Show results
-y, yg = tracker.results()
-t = np.linspace(0, len(y)/FPS, len(y))
-plt.plot(t, y, label='Subject')
-plt.plot(t, yg, label='Guidance')
-plt.xlim(0, t[-1])
-plt.legend()
-plt.show()
-
-d = np.vstack((t, y, yg)).T
-ShortLongColors('test', d)
+# Run the experiment
+RunExperiment()
