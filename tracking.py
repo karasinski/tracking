@@ -42,17 +42,17 @@ class Cursor(object):
         y = event.ydata
         self.lx.set_ydata(y)
 
-        scale = 2 * self.ax.get_ylim()[1]
-        location = y / scale + 0.5
-        self.ly.set_ydata([location - .025, location + .025])
-
     def update(self):
         if self.use_joystick:
             velocity = self.joystick.input()
-            location = np.mean(self.ly.get_ydata())
-            print('loc: ', location)
-            location += velocity / 10.
-            self.ly.set_ydata([location - .025, location + .025])
+            y = self.lx.get_ydata()
+            y += velocity / 50.
+            self.lx.set_ydata(y)
+
+        y = self.lx.get_ydata()
+        scale = 2 * self.ax.get_ylim()[1]
+        location = y / scale + 0.5
+        self.ly.set_ydata([location - .025, location + .025])
 
 
 class Joystick(object):
@@ -70,9 +70,11 @@ class Joystick(object):
         Axis 3 is the forward/back tilt axis, axis 1 is the same for push.
         '''
 
+        # Must call this to update values
+        pygame.event.get()
+
+        # Get axis value
         axis = self.joystick.get_axis(3)
-        print(self.joystick.get_name())
-        print('ax: ', axis)
         return axis
 
 
@@ -231,7 +233,7 @@ def draw_sin(t, a=1, f=1, o=0):
     return a * np.sin(f * (t + o))
 
 
-def RunExperiment():
+def RunExperiment(results=False):
     # Create a plot
     fig, (ax, statsax) = plt.subplots(nrows=2, figsize=(8, 9), sharex=True)
 
@@ -241,8 +243,8 @@ def RunExperiment():
             'right': .2,
             'span': 60,
             'length': 20,
-            'FPS': 60
-            }
+            'FPS': 60}
+
     # Configure animation
     tracker = Tracker(fig, ax, statsax, **kwds)
 
@@ -254,13 +256,14 @@ def RunExperiment():
     # Start animation
     plt.show()
 
-    # Show results
-    y, yg = tracker.results()
-    t = np.linspace(0, len(y)/kwds['FPS'], len(y))
-    d = np.vstack((t, y, yg)).T
+    if results:
+        # Show results
+        y, yg = tracker.results()
+        t = np.linspace(0, len(y)/kwds['FPS'], len(y))
+        d = np.vstack((t, y, yg)).T
 
-    plots.Performance(d)
-    plots.ShortLongColor('test', d)
+        plots.Performance(d)
+        plots.ShortLongColor('test', d)
 
 # A couple global parameters
 x = np.linspace(0 * np.pi, 40 * np.pi, 10000)
@@ -268,4 +271,4 @@ window = 1000
 half_w = int(window/2)
 
 # Run the experiment
-RunExperiment()
+RunExperiment(True)
