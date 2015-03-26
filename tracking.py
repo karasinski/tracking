@@ -191,7 +191,7 @@ class Tracker(object):
         # Finally initialize simulation
         self.status = 0
         self.frame = 0.
-        self.end_time = length
+        self.FPS = FPS
         self.end_frame = length * FPS
         self.funckwds = funckwds
         self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
@@ -246,7 +246,7 @@ class Tracker(object):
     def results(self):
         y = self.ys
         yg = self.ygs
-        t = np.linspace(0, self.end_time, len(y))
+        t = np.linspace(0, self.frame/self.FPS, len(y))
         d = np.vstack((t, y, yg)).T
         return d
 
@@ -310,7 +310,7 @@ kwds = {'use_joystick': True,
         'left': .8,
         'right': .2,
         'feedback': True,
-        'invert': False}
+        'invert': True}
 funckwds = {'frequencyA': 0.6, 'frequencyB': 1.7,
             'offsetA': 3, 'offsetB': 17,
             'amplitudeA': 0.6, 'amplitudeB': .2}
