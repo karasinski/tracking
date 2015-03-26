@@ -15,9 +15,10 @@ FINISHED = 3
 
 
 class Cursor(object):
-    def __init__(self, ax, use_joystick=False):
+    def __init__(self, ax, use_joystick=False, invert=False):
         self.use_joystick = use_joystick
         self.ax = ax
+        self.invert = invert
         self.lx = ax.axhline(xmin=.475, xmax=.525, color='r', animated=True)
         self.ly = ax.axvline(ymin=.475, ymax=.525, color='r', animated=True)
 
@@ -46,8 +47,16 @@ class Cursor(object):
         if self.use_joystick:
             sensitivity = 35  # larger -> less sensitive
             velocity = self.joystick.input()
+            if self.invert:
+                velocity *= -1
             y = self.lx.get_ydata()
             y += velocity / sensitivity
+
+            # Bind position to screen limits
+            if y > 1:
+                y = 1
+            elif y < -1:
+                y = -1
             self.lx.set_ydata(y)
 
         y = self.lx.get_ydata()
@@ -152,7 +161,7 @@ class Tracker(object):
                  funckwds={},
                  left=1., right=1.,
                  span=60, length=20, FPS=60,
-                 feedback=False):
+                 feedback=False, invert=False):
         # Set some limits
         ax.set_ylim(-1.1, 1.1)
         statsax.set_ylim(-1.1, 1.1)
@@ -187,7 +196,7 @@ class Tracker(object):
         self.funckwds = funckwds
         self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
         self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
-        self.cursor = Cursor(ax, use_joystick=use_joystick)
+        self.cursor = Cursor(ax, use_joystick=use_joystick, invert=invert)
         self.stoplight = StoplightMetric(statsax,
                                          span=span * FPS, feedback=feedback)
         self.ys, self.ygs = array('f'), array('f')
@@ -269,7 +278,8 @@ def RunExperiment(kwds, funckwds, show=False):
                 'funckwds': funckwds,
                 'length': 20,
                 'FPS': 60,
-                'feedback': False}
+                'feedback': False,
+                'invert': False}
     kwds = dict(defaults.items() + kwds.items())
 
     # Configure animation
@@ -299,7 +309,8 @@ half_w = int(window/2)
 kwds = {'use_joystick': True,
         'left': .8,
         'right': .2,
-        'feedback': True}
+        'feedback': True,
+        'invert': False}
 funckwds = {'frequencyA': 0.6, 'frequencyB': 1.7,
             'offsetA': 3, 'offsetB': 17,
             'amplitudeA': 0.6, 'amplitudeB': .2}
