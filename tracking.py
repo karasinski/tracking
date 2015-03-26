@@ -44,9 +44,10 @@ class Cursor(object):
 
     def update(self):
         if self.use_joystick:
+            sensitivity = 35  # larger -> less sensitive
             velocity = self.joystick.input()
             y = self.lx.get_ydata()
-            y += velocity / 50.
+            y += velocity / sensitivity
             self.lx.set_ydata(y)
 
         y = self.lx.get_ydata()
@@ -79,13 +80,20 @@ class Joystick(object):
 
 
 class StoplightMetric(object):
-    def __init__(self, ax, span=60):
+    def __init__(self, ax, span=60, feedback=False):
         self.ax = ax
+        self.feedback = feedback
         self.errs = []
         self.greens, self.yellows = [], []
         self.span = span  # average over 60 measurements @ 60FPS = 1 second
+
+        if feedback:
+            color = 'k'
+        else:
+            color = 'white'
+
         self.error = ax.plot(x[:window], np.zeros(window),
-                             animated=True, color='k')[0]
+                             animated=True, color=color)[0]
 
     def update(self, new_measurement):
         self.errs.append(new_measurement)
@@ -116,27 +124,35 @@ class StoplightMetric(object):
         yellows = np.array(self.yellows)[1:]
 
         # Check the latest value and find the largest--this is inefficient
+        color = ''
         try:
             red = 1 - yellows[-1]
             yellow = yellows[-1] - greens[-1]
             green = greens[-1]
 
             if red > yellow and red > green:
-                self.ax.set_axis_bgcolor('red')
+                color = 'red'
             elif yellow > red and yellow > green:
-                self.ax.set_axis_bgcolor('yellow')
+                color = 'yellow'
             else:
-                self.ax.set_axis_bgcolor('green')
+                color = 'green'
             # print(red, yellow, green)
         except IndexError:
-            self.ax.set_axis_bgcolor('red')
+            color = 'white'
+
+        if self.feedback:
+            self.ax.set_axis_bgcolor(color)
+        else:
+            self.ax.set_axis_bgcolor('white')
 
 
 class Tracker(object):
     def __init__(self, fig, ax, statsax,
                  use_joystick=False,
+                 funckwds={},
                  left=1., right=1.,
-                 span=60, length=20, FPS=60):
+                 span=60, length=20, FPS=60,
+                 feedback=False):
         # Set some limits
         ax.set_ylim(-1.1, 1.1)
         statsax.set_ylim(-1.1, 1.1)
@@ -160,23 +176,27 @@ class Tracker(object):
         # Disable ticks
         ax.set_xticklabels([], visible=False), ax.set_xticks([])
         ax.set_yticklabels([], visible=False), ax.set_yticks([])
+        ax.set_yticklabels([], visible=False), statsax.set_yticks([])
         fig.canvas.mpl_connect('key_press_event', self.press)
 
         # Finally initialize simulation
         self.status = 0
-        self.time = 0.
-        self.end_time = length * FPS
+        self.frame = 0.
+        self.end_time = length
+        self.end_frame = length * FPS
+        self.funckwds = funckwds
         self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
         self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
         self.cursor = Cursor(ax, use_joystick=use_joystick)
-        self.stoplight = StoplightMetric(statsax, span=span)
+        self.stoplight = StoplightMetric(statsax,
+                                         span=span * FPS, feedback=feedback)
         self.ys, self.ygs = array('f'), array('f')
 
-    def __call__(self, time):
+    def __call__(self, frame):
         self.cursor.update()
 
         if self.status == INITIALIZED:
-            self.time += 1
+            self.frame += 1
 
             # Log cursor position
             self.ys.append(self.cursor.lx.get_ydata())
@@ -187,13 +207,13 @@ class Tracker(object):
             self.stoplight.update(err)
 
             # Close when the simulation is over
-            if self.time >= self.end_time:
+            if self.frame >= self.end_frame:
                 self.status = FINISHED
                 plt.close()
 
         # Update guidance, plot recent data
-        curr_range = x[self.time:window + self.time]
-        self.guidance.set_ydata(func(curr_range))
+        curr_range = x[self.frame:window + self.frame]
+        self.guidance.set_ydata(func(curr_range, **self.funckwds))
 
         recent = np.zeros(half_w)
         recent[half_w-len(self.ys[-half_w:]):] += self.ys[-half_w:]
@@ -215,13 +235,17 @@ class Tracker(object):
             plt.close()
 
     def results(self):
-        return np.array(self.ys), np.array(self.ygs)
+        y = self.ys
+        yg = self.ygs
+        t = np.linspace(0, self.end_time, len(y))
+        d = np.vstack((t, y, yg)).T
+        return d
 
 
-def func(t):
-    frequencyA, frequencyB = 0.6, 1.7
-    offsetA, offsetB = 3, 17
-    amplitudeA, amplitudeB = .6, .2
+def func(t,
+         frequencyA=0, frequencyB=0,
+         offsetA=0, offsetB=0,
+         amplitudeA=1, amplitudeB=1):
 
     f = draw_sin(t, a=amplitudeA, f=frequencyA, o=offsetA)
     f += draw_sin(t, a=amplitudeB, f=frequencyB, o=offsetB)
@@ -233,17 +257,20 @@ def draw_sin(t, a=1, f=1, o=0):
     return a * np.sin(f * (t + o))
 
 
-def RunExperiment(results=False):
+def RunExperiment(kwds, funckwds, show=False):
     # Create a plot
     fig, (ax, statsax) = plt.subplots(nrows=2, figsize=(8, 9), sharex=True)
 
-    # Create cursor and tracker
-    kwds = {'use_joystick': True,
-            'left': .8,
-            'right': .2,
-            'span': 60,
-            'length': 20,
-            'FPS': 60}
+    # Merge input options with defaults
+    defaults = {'use_joystick': False,
+                'left': 1.,
+                'right': 1.,
+                'span': 1,
+                'funckwds': funckwds,
+                'length': 20,
+                'FPS': 60,
+                'feedback': False}
+    kwds = dict(defaults.items() + kwds.items())
 
     # Configure animation
     tracker = Tracker(fig, ax, statsax, **kwds)
@@ -256,11 +283,9 @@ def RunExperiment(results=False):
     # Start animation
     plt.show()
 
-    if results:
+    if show:
         # Show results
-        y, yg = tracker.results()
-        t = np.linspace(0, len(y)/kwds['FPS'], len(y))
-        d = np.vstack((t, y, yg)).T
+        d = tracker.results()
 
         plots.Performance(d)
         plots.ShortLongColor('test', d)
@@ -270,5 +295,14 @@ x = np.linspace(0 * np.pi, 40 * np.pi, 10000)
 window = 1000
 half_w = int(window/2)
 
+# Experiment parameters
+kwds = {'use_joystick': True,
+        'left': .8,
+        'right': .2,
+        'feedback': True}
+funckwds = {'frequencyA': 0.6, 'frequencyB': 1.7,
+            'offsetA': 3, 'offsetB': 17,
+            'amplitudeA': 0.6, 'amplitudeB': .2}
+
 # Run the experiment
-RunExperiment(True)
+RunExperiment(kwds, funckwds, show=True)
