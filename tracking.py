@@ -59,10 +59,10 @@ class Cursor(object):
             y += velocity / sensitivity
 
             # Bind position to screen limits
-            if y > 1:
-                y = 1
-            elif y < -1:
-                y = -1
+            if y > 1.1:
+                y = 1.1
+            elif y < -1.1:
+                y = -1.1
             self.lx.set_ydata(y)
 
         y = self.lx.get_ydata()
@@ -190,6 +190,7 @@ class Tracker(object):
         ax.add_patch(self.patchR)
 
         # Disable ticks
+        ax.set_title('Trial ' + str(trial))
         ax.set_xticklabels([], visible=False), ax.set_xticks([])
         ax.set_yticklabels([], visible=False), ax.set_yticks([])
         ax.set_yticklabels([], visible=False), statsax.set_yticks([])
