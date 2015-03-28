@@ -330,7 +330,7 @@ half_w = int(window/2)
 #         'feedback': True}
 
 # Run a trial
-# RunTrial(kwds, funckwds, show=True)
+# RunTrial(kwds, show=True)
 
 funckwds1 = {'frequencyA': 0.6, 'frequencyB': 1.7,
              'offsetA': 3, 'offsetB': 17,
