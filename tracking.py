@@ -6,6 +6,7 @@ import numpy as np
 from array import array
 import pygame
 import plots
+import time
 
 
 UNINITIALIZED = 0
@@ -24,6 +25,7 @@ class Cursor(object):
 
         self.ly.set_xdata(ax.get_xlim()[1]/2)
         self.lx.set_ydata(0)
+        self.input = array('f')
 
         # Connect
         if use_joystick:
@@ -43,10 +45,14 @@ class Cursor(object):
         y = event.ydata
         self.lx.set_ydata(y)
 
-    def update(self):
+    def update(self, status):
         if self.use_joystick:
             sensitivity = 35  # larger -> less sensitive
             velocity = self.joystick.input()
+
+            if status == INITIALIZED:
+                self.input.append(velocity)
+
             if self.invert:
                 velocity *= -1
             y = self.lx.get_ydata()
@@ -157,6 +163,7 @@ class StoplightMetric(object):
 
 class Tracker(object):
     def __init__(self, fig, ax, statsax,
+                 trial=0,
                  use_joystick=False,
                  funckwds={},
                  left=1., right=1.,
@@ -189,6 +196,7 @@ class Tracker(object):
         fig.canvas.mpl_connect('key_press_event', self.press)
 
         # Finally initialize simulation
+        self.trial = trial
         self.status = 0
         self.frame = 0.
         self.FPS = FPS
@@ -202,7 +210,7 @@ class Tracker(object):
         self.ys, self.ygs = array('f'), array('f')
 
     def __call__(self, frame):
-        self.cursor.update()
+        self.cursor.update(self.status)
 
         if self.status == INITIALIZED:
             self.frame += 1
@@ -221,8 +229,9 @@ class Tracker(object):
                 plt.close()
 
         # Update guidance, plot recent data
-        curr_range = x[self.frame:window + self.frame]
-        self.guidance.set_ydata(func(curr_range, **self.funckwds))
+        low = self.frame
+        high = window + self.frame
+        self.guidance.set_ydata(func(x, **self.funckwds)[low:high])
 
         recent = np.zeros(half_w)
         recent[half_w-len(self.ys[-half_w:]):] += self.ys[-half_w:]
@@ -233,8 +242,7 @@ class Tracker(object):
                 self.patchL, self.patchR,
                 self.cursor.lx, self.cursor.ly,
                 self.stoplight.ax,
-                self.stoplight.error,
-                ]
+                self.stoplight.error]
 
     def press(self, event):
         if self.status == UNINITIALIZED:
@@ -244,15 +252,21 @@ class Tracker(object):
             plt.close()
 
     def results(self):
+        inp = self.cursor.input
         y = self.ys
         yg = self.ygs
         t = np.linspace(0, self.frame/self.FPS, len(y))
-        d = np.vstack((t, y, yg)).T
+        d = np.vstack((t, inp, y, yg)).T
+
+        path = 'trials/'
+        path += str(self.trial) + ' '
+        path += str(int(time.time()))
+        np.savetxt(path, d, delimiter=",")
         return d
 
 
 def func(t,
-         frequencyA=0, frequencyB=0,
+         frequencyA=0.5, frequencyB=0,
          offsetA=0, offsetB=0,
          amplitudeA=1, amplitudeB=1):
 
@@ -266,20 +280,20 @@ def draw_sin(t, a=1, f=1, o=0):
     return a * np.sin(f * (t + o))
 
 
-def RunExperiment(kwds, funckwds, show=False):
+def RunTrial(kwds, show=False):
     # Create a plot
     fig, (ax, statsax) = plt.subplots(nrows=2, figsize=(8, 9), sharex=True)
 
     # Merge input options with defaults
-    defaults = {'use_joystick': False,
+    defaults = {'use_joystick': True,
                 'left': 1.,
                 'right': 1.,
                 'span': 1,
-                'funckwds': funckwds,
-                'length': 20,
+                'funckwds': {},
+                'length': 30,
                 'FPS': 60,
                 'feedback': False,
-                'invert': False}
+                'invert': True}
     kwds = dict(defaults.items() + kwds.items())
 
     # Configure animation
@@ -292,11 +306,10 @@ def RunExperiment(kwds, funckwds, show=False):
 
     # Start animation
     plt.show()
+    d = tracker.results()
 
     if show:
         # Show results
-        d = tracker.results()
-
         plots.Performance(d)
         plots.ShortLongColor('test', d)
 
@@ -306,14 +319,111 @@ window = 1000
 half_w = int(window/2)
 
 # Experiment parameters
-kwds = {'use_joystick': True,
-        'left': .8,
-        'right': .2,
-        'feedback': True,
-        'invert': True}
-funckwds = {'frequencyA': 0.6, 'frequencyB': 1.7,
-            'offsetA': 3, 'offsetB': 17,
-            'amplitudeA': 0.6, 'amplitudeB': .2}
+# funckwds = {'frequencyA': 0.6, 'frequencyB': 1.7,
+#             'offsetA': 3, 'offsetB': 17,
+#             'amplitudeA': 0.6, 'amplitudeB': .2}
+# kwds = {'trial': 1,
+#         'length': 20,
+#         'funckwds': funckwds,
+#         'left': .8,
+#         'right': .2,
+#         'feedback': True}
+
+# Run a trial
+# RunTrial(kwds, funckwds, show=True)
+
+funckwds1 = {'frequencyA': 0.6, 'frequencyB': 1.7,
+             'offsetA': 3, 'offsetB': 17,
+             'amplitudeA': 0.6, 'amplitudeB': .2}
+funckwds2 = {'frequencyA': 0.6, 'frequencyB': 1.,
+             'offsetA': 17, 'offsetB': 3,
+             'amplitudeA': 0.6, 'amplitudeB': .4}
+
+ks = [
+        # 'Training' Trials
+        {'trial': 1},
+
+        {'trial': 2,
+         'feedback': True},
+
+        {'trial': 3,
+         'left': .5,
+         'right': .2},
+
+        {'trial': 4,
+         'left': .5,
+         'right': .2,
+         'feedback': True},
+
+        {'trial': 5,
+         'left': .5,
+         'right': 0},
+
+        {'trial': 6,
+         'left': .5,
+         'right': 0,
+         'feedback': True},
+
+        # 'Experiment' Trials
+        {'trial': 7,
+         'funckwds': funckwds1},
+
+        {'trial': 8,
+         'funckwds': funckwds2,
+         'left': .5,
+         'right': .2,
+         'feedback': True},
+
+        {'trial': 9,
+         'funckwds': funckwds2,
+         'left': .5,
+         'right': 0},
+
+        {'trial': 10,
+         'funckwds': funckwds1,
+         'left': .5,
+         'right': .2,
+         'feedback': True},
+
+        {'trial': 11,
+         'funckwds': funckwds1,
+         'left': .5,
+         'right': 0},
+
+        {'trial': 12,
+         'funckwds': funckwds2},
+
+        {'trial': 13,
+         'funckwds': funckwds1,
+         'left': .5,
+         'right': 0,
+         'feedback': True},
+
+        {'trial': 14,
+         'funckwds': funckwds1,
+         'feedback': True},
+
+        {'trial': 15,
+         'funckwds': funckwds2,
+         'feedback': True},
+
+        {'trial': 16,
+         'funckwds': funckwds1,
+         'left': .5,
+         'right': .2},
+
+        {'trial': 17,
+         'funckwds': funckwds2,
+         'left': .5,
+         'right': .2},
+
+        {'trial': 18,
+         'funckwds': funckwds2,
+         'left': .5,
+         'right': 0,
+         'feedback': True},
+        ]
 
 # Run the experiment
-RunExperiment(kwds, funckwds, show=True)
+for k in ks:
+    RunTrial(k)
