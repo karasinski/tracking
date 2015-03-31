@@ -340,8 +340,7 @@ funckwds2 = {'frequencyA': 0.6, 'frequencyB': 1.,
              'offsetA': 17, 'offsetB': 3,
              'amplitudeA': 0.6, 'amplitudeB': .4}
 
-ks = [
-        # 'Training' Trials
+ks = [  # 'Training' Trials
         {'trial': 1},
 
         {'trial': 2,

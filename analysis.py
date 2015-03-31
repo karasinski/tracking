@@ -153,11 +153,10 @@ trials = pd.DataFrame.from_dict(trials).T.convert_objects(convert_numeric=True)
 file_paths = get_filepaths('trials/')
 d = load_data(file_paths)
 
-
-# feedback = list(trials.query('Feedback').index)
-# feedback = [str(trial) for trial in feedback]
-# no_feedback = list(trials.query('not Feedback').index)
-# no_feedback = [str(trial) for trial in no_feedback]
+feedback = list(trials.query('Feedback').index)
+feedback = [str(trial) for trial in feedback]
+no_feedback = list(trials.query('not Feedback').index)
+no_feedback = [str(trial) for trial in no_feedback]
 
 # none = list(trials.query('Visible == "None"').index)
 # none = [str(trial) for trial in none]
@@ -165,3 +164,11 @@ d = load_data(file_paths)
 # some = [str(trial) for trial in some]
 # allv = list(trials.query('Visible == "All"').index)
 # allv = [str(trial) for trial in allv]
+
+nf = d[:, no_feedback, :, 'Error'].mean().mean()
+f  = d[:,    feedback, :, 'Error'].mean().mean()
+subj_improvement = 100 * (nf - f) / nf
+
+print("\nRelative average improvement of {0:3.3f}%. \n".format(np.mean(subj_improvement)))
+print("Or by subject:")
+print(subj_improvement)
