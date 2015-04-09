@@ -16,7 +16,7 @@ FINISHED = 3
 
 
 class Cursor(object):
-    def __init__(self, ax, use_joystick=False, invert=False):
+    def __init__(self, ax, use_joystick=False, invert=False, has_timer=False):
         self.use_joystick = use_joystick
         self.ax = ax
         self.invert = invert
@@ -26,6 +26,15 @@ class Cursor(object):
         self.ly.set_xdata(ax.get_xlim()[1]/2)
         self.lx.set_ydata(0)
         self.input = array('f')
+
+        # Text location in axes coords
+
+        if has_timer:
+            color = 'black'
+        else:
+            color = 'white'
+        self.txt = ax.text(0.9, 0.95, '',
+                           transform=ax.transAxes, animated=True, color=color)
 
         # Connect
         if use_joystick:
@@ -59,10 +68,10 @@ class Cursor(object):
             y += velocity / sensitivity
 
             # Bind position to screen limits
-            if y > 1.1:
-                y = 1.1
-            elif y < -1.1:
-                y = -1.1
+            if y > 1.2:
+                y = 1.2
+            elif y < -1.2:
+                y = -1.2
             self.lx.set_ydata(y)
 
         y = self.lx.get_ydata()
@@ -168,10 +177,11 @@ class Tracker(object):
                  funckwds={},
                  left=1., right=1.,
                  span=60, length=20, FPS=60,
-                 feedback=False, invert=False):
+                 feedback=False, invert=False,
+                 has_timer=False):
         # Set some limits
-        ax.set_ylim(-1.1, 1.1)
-        statsax.set_ylim(-1.1, 1.1)
+        ax.set_ylim(-1.2, 1.2)
+        statsax.set_ylim(-1.2, 1.2)
         ax.set_xlim(x[0], x[window])
 
         # Add blockers on left and right
@@ -201,11 +211,15 @@ class Tracker(object):
         self.status = 0
         self.frame = 0.
         self.FPS = FPS
+        self.timer_start_value = 15
+        self.timer = array('f')
         self.end_frame = length * FPS
         self.funckwds = funckwds
         self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
         self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
-        self.cursor = Cursor(ax, use_joystick=use_joystick, invert=invert)
+        self.cursor = Cursor(ax,
+                             use_joystick=use_joystick,
+                             invert=invert, has_timer=has_timer)
         self.stoplight = StoplightMetric(statsax,
                                          span=span * FPS, feedback=feedback)
         self.ys, self.ygs = array('f'), array('f')
@@ -221,8 +235,18 @@ class Tracker(object):
             self.ygs.append(self.guidance.get_ydata()[half_w])
 
             err = self.ys[-1] - self.ygs[-1]
-
             self.stoplight.update(err)
+
+            # Set timer value
+            try:
+                timer = self.timer[-1] - 1./self.FPS
+                if timer < 0:
+                    timer = 0
+            except:
+                timer = self.timer_start_value
+
+            self.cursor.txt.set_text('%2.2f' % (timer))
+            self.timer.append(timer)
 
             # Close when the simulation is over
             if self.frame >= self.end_frame:
@@ -243,21 +267,31 @@ class Tracker(object):
                 self.patchL, self.patchR,
                 self.cursor.lx, self.cursor.ly,
                 self.stoplight.ax,
-                self.stoplight.error]
+                self.stoplight.error,
+                self.cursor.txt]
 
     def press(self, event):
-        if self.status == UNINITIALIZED:
-            self.status = INITIALIZED
-        elif self.status == INITIALIZED:
-            self.status = EXIT
-            plt.close()
+        # Start the trial when the subject hits the space bar
+        if event.key == ' ':
+            if self.status == UNINITIALIZED:
+                self.status = INITIALIZED
+            elif self.status == INITIALIZED:
+                self.status = EXIT
+                plt.close()
+
+        # If the timer has ran out, reset the timer on click
+        if event.key is 'left' or event.key is 'right':
+            print(self.timer[-1])
+            if self.timer[-1] == 0.:
+                self.timer.append(self.timer_start_value)
 
     def results(self):
         inp = self.cursor.input
         y = self.ys
         yg = self.ygs
         t = np.linspace(0, self.frame/self.FPS, len(y))
-        d = np.vstack((t, inp, y, yg)).T
+        timer = self.timer
+        d = np.vstack((t, inp, y, yg, timer)).T
 
         path = 'trials/'
         path += str(self.trial) + ' '
@@ -291,7 +325,7 @@ def RunTrial(kwds, show=False):
                 'right': 1.,
                 'span': 1,
                 'funckwds': {},
-                'length': 30,
+                'length': 60,
                 'FPS': 60,
                 'feedback': False,
                 'invert': True}
@@ -319,20 +353,6 @@ x = np.linspace(0 * np.pi, 40 * np.pi, 10000)
 window = 1000
 half_w = int(window/2)
 
-# Experiment parameters
-# funckwds = {'frequencyA': 0.6, 'frequencyB': 1.7,
-#             'offsetA': 3, 'offsetB': 17,
-#             'amplitudeA': 0.6, 'amplitudeB': .2}
-# kwds = {'trial': 1,
-#         'length': 20,
-#         'funckwds': funckwds,
-#         'left': .8,
-#         'right': .2,
-#         'feedback': True}
-
-# Run a trial
-# RunTrial(kwds, show=True)
-
 funckwds1 = {'frequencyA': 0.6, 'frequencyB': 1.7,
              'offsetA': 3, 'offsetB': 17,
              'amplitudeA': 0.6, 'amplitudeB': .2}
@@ -341,6 +361,9 @@ funckwds2 = {'frequencyA': 0.6, 'frequencyB': 1.,
              'amplitudeA': 0.6, 'amplitudeB': .4}
 
 ks = [  # 'Training' Trials
+        {'trial': 0,
+         'has_timer': True},
+
         {'trial': 1},
 
         {'trial': 2,
@@ -348,76 +371,45 @@ ks = [  # 'Training' Trials
 
         {'trial': 3,
          'left': .5,
-         'right': .2},
-
-        {'trial': 4,
-         'left': .5,
-         'right': .2,
-         'feedback': True},
-
-        {'trial': 5,
-         'left': .5,
          'right': 0},
 
-        {'trial': 6,
+        {'trial': 4,
          'left': .5,
          'right': 0,
          'feedback': True},
 
         # 'Experiment' Trials
-        {'trial': 7,
+        {'trial': 5,
          'funckwds': funckwds1},
 
+        {'trial': 6,
+         'funckwds': funckwds2,
+         'left': .5,
+         'right': 0},
+
+        {'trial': 7,
+         'funckwds': funckwds1,
+         'left': .5,
+         'right': 0},
+
         {'trial': 8,
-         'funckwds': funckwds2,
-         'left': .5,
-         'right': .2,
-         'feedback': True},
-
-        {'trial': 9,
-         'funckwds': funckwds2,
-         'left': .5,
-         'right': 0},
-
-        {'trial': 10,
-         'funckwds': funckwds1,
-         'left': .5,
-         'right': .2,
-         'feedback': True},
-
-        {'trial': 11,
-         'funckwds': funckwds1,
-         'left': .5,
-         'right': 0},
-
-        {'trial': 12,
          'funckwds': funckwds2},
 
-        {'trial': 13,
+        {'trial': 9,
          'funckwds': funckwds1,
          'left': .5,
          'right': 0,
          'feedback': True},
 
-        {'trial': 14,
+        {'trial': 10,
          'funckwds': funckwds1,
          'feedback': True},
 
-        {'trial': 15,
+        {'trial': 11,
          'funckwds': funckwds2,
          'feedback': True},
 
-        {'trial': 16,
-         'funckwds': funckwds1,
-         'left': .5,
-         'right': .2},
-
-        {'trial': 17,
-         'funckwds': funckwds2,
-         'left': .5,
-         'right': .2},
-
-        {'trial': 18,
+        {'trial': 12,
          'funckwds': funckwds2,
          'left': .5,
          'right': 0,
