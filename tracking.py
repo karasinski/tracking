@@ -7,6 +7,9 @@ from array import array
 import pygame
 import plots
 import time
+from matplotlib._png import read_png
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+# import seaborn as sns  # experiment with this...
 
 
 UNINITIALIZED = 0
@@ -16,7 +19,8 @@ FINISHED = 3
 
 
 class Cursor(object):
-    def __init__(self, ax, use_joystick=False, invert=False, has_timer=False):
+    def __init__(self, ax, use_joystick=False, invert=False,
+                 has_timer=False):
         self.use_joystick = use_joystick
         self.ax = ax
         self.invert = invert
@@ -27,12 +31,12 @@ class Cursor(object):
         self.lx.set_ydata(0)
         self.input = array('f')
 
-        # Text location in axes coords
-
         if has_timer:
             color = 'black'
         else:
             color = 'white'
+
+        # Text location in axes coords
         self.txt = ax.text(0.9, 0.95, '',
                            transform=ax.transAxes, animated=True, color=color)
 
@@ -178,7 +182,7 @@ class Tracker(object):
                  left=1., right=1.,
                  span=60, length=20, FPS=60,
                  feedback=False, invert=False,
-                 has_timer=False):
+                 has_timer=False, has_colors=False):
         # Set some limits
         ax.set_ylim(-1.2, 1.2)
         statsax.set_ylim(-1.2, 1.2)
@@ -199,6 +203,23 @@ class Tracker(object):
         ax.add_patch(self.patchL)
         ax.add_patch(self.patchR)
 
+        # Draw colors
+        teal = read_png('imgs/TEAL.png')
+        blue = read_png('imgs/BLUE.png')
+        green = read_png('imgs/GREEN.png')
+
+        axicon = fig.add_axes([.9,0.805,0.1,0.1])
+        axicon.axis('off')
+        axicon.set_xticks([])
+        axicon.set_yticks([])
+
+        self.teal = axicon.imshow(teal, aspect='equal', animated=True, visible=False)
+        self.blue = axicon.imshow(blue, aspect='equal', animated=True, visible=False)
+        self.green = axicon.imshow(green, aspect='equal', animated=True, visible=False)
+
+        if has_colors:
+            self.teal.set_visible(True)
+
         # Disable ticks
         ax.set_title('Trial ' + str(trial))
         ax.set_xticklabels([], visible=False), ax.set_xticks([])
@@ -218,8 +239,8 @@ class Tracker(object):
         self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
         self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
         self.cursor = Cursor(ax,
-                             use_joystick=use_joystick,
-                             invert=invert, has_timer=has_timer)
+                             use_joystick=use_joystick, invert=invert,
+                             has_timer=has_timer)
         self.stoplight = StoplightMetric(statsax,
                                          span=span * FPS, feedback=feedback)
         self.ys, self.ygs = array('f'), array('f')
@@ -248,6 +269,9 @@ class Tracker(object):
             self.cursor.txt.set_text('%2.2f' % (timer))
             self.timer.append(timer)
 
+            # Set colors value
+            pass
+
             # Close when the simulation is over
             if self.frame >= self.end_frame:
                 self.status = FINISHED
@@ -268,7 +292,10 @@ class Tracker(object):
                 self.cursor.lx, self.cursor.ly,
                 self.stoplight.ax,
                 self.stoplight.error,
-                self.cursor.txt]
+                self.cursor.txt,
+                self.teal,
+                self.blue,
+                self.green]
 
     def press(self, event):
         # Start the trial when the subject hits the space bar
@@ -281,9 +308,15 @@ class Tracker(object):
 
         # If the timer has ran out, reset the timer on click
         if event.key is 'left' or event.key is 'right':
+            visibility = self.teal.get_visible()
+            print(visibility)
+            self.teal.set_visible(not visibility)
+            self.blue.set_visible(visibility)
+
             print(self.timer[-1])
             if self.timer[-1] == 0.:
                 self.timer.append(self.timer_start_value)
+
 
     def results(self):
         inp = self.cursor.input
@@ -362,58 +395,59 @@ funckwds2 = {'frequencyA': 0.6, 'frequencyB': 1.,
 
 ks = [  # 'Training' Trials
         {'trial': 0,
-         'has_timer': True},
+         'has_timer': True,
+         'has_colors': True},
 
-        {'trial': 1},
+        # {'trial': 1},
 
-        {'trial': 2,
-         'feedback': True},
+        # {'trial': 2,
+        #  'feedback': True},
 
-        {'trial': 3,
-         'left': .5,
-         'right': 0},
+        # {'trial': 3,
+        #  'left': .5,
+        #  'right': 0},
 
-        {'trial': 4,
-         'left': .5,
-         'right': 0,
-         'feedback': True},
+        # {'trial': 4,
+        #  'left': .5,
+        #  'right': 0,
+        #  'feedback': True},
 
-        # 'Experiment' Trials
-        {'trial': 5,
-         'funckwds': funckwds1},
+        # # 'Experiment' Trials
+        # {'trial': 5,
+        #  'funckwds': funckwds1},
 
-        {'trial': 6,
-         'funckwds': funckwds2,
-         'left': .5,
-         'right': 0},
+        # {'trial': 6,
+        #  'funckwds': funckwds2,
+        #  'left': .5,
+        #  'right': 0},
 
-        {'trial': 7,
-         'funckwds': funckwds1,
-         'left': .5,
-         'right': 0},
+        # {'trial': 7,
+        #  'funckwds': funckwds1,
+        #  'left': .5,
+        #  'right': 0},
 
-        {'trial': 8,
-         'funckwds': funckwds2},
+        # {'trial': 8,
+        #  'funckwds': funckwds2},
 
-        {'trial': 9,
-         'funckwds': funckwds1,
-         'left': .5,
-         'right': 0,
-         'feedback': True},
+        # {'trial': 9,
+        #  'funckwds': funckwds1,
+        #  'left': .5,
+        #  'right': 0,
+        #  'feedback': True},
 
-        {'trial': 10,
-         'funckwds': funckwds1,
-         'feedback': True},
+        # {'trial': 10,
+        #  'funckwds': funckwds1,
+        #  'feedback': True},
 
-        {'trial': 11,
-         'funckwds': funckwds2,
-         'feedback': True},
+        # {'trial': 11,
+        #  'funckwds': funckwds2,
+        #  'feedback': True},
 
-        {'trial': 12,
-         'funckwds': funckwds2,
-         'left': .5,
-         'right': 0,
-         'feedback': True},
+        # {'trial': 12,
+        #  'funckwds': funckwds2,
+        #  'left': .5,
+        #  'right': 0,
+        #  'feedback': True},
         ]
 
 # Run the experiment
