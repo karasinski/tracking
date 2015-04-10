@@ -9,7 +9,7 @@ import plots
 import time
 from matplotlib._png import read_png
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-# import seaborn as sns  # experiment with this...
+import seaborn as sns  # experiment with this...
 
 
 UNINITIALIZED = 0
@@ -17,9 +17,11 @@ INITIALIZED = 1
 EXIT = 2
 FINISHED = 3
 
+BLUE = -1
+GREEN = 1
 
 class Cursor(object):
-    def __init__(self, ax, use_joystick=False, invert=False,
+    def __init__(self, fig, ax, use_joystick=False, invert=False,
                  has_timer=False):
         self.use_joystick = use_joystick
         self.ax = ax
@@ -34,11 +36,12 @@ class Cursor(object):
         if has_timer:
             color = 'black'
         else:
-            color = 'white'
+            color = fig.get_facecolor()
 
         # Text location in axes coords
-        self.txt = ax.text(0.9, 0.95, '',
-                           transform=ax.transAxes, animated=True, color=color)
+        self.txt = ax.text(1.05, 0.93, '',
+                           transform=ax.transAxes, animated=True, color=color,
+                           size='x-large', ha='right', family='monospace')
 
         # Connect
         if use_joystick:
@@ -77,6 +80,10 @@ class Cursor(object):
             elif y < -1.2:
                 y = -1.2
             self.lx.set_ydata(y)
+        else:
+            if status == INITIALIZED:
+                # Can't really log your mouse input...
+                self.input.append(0)
 
         y = self.lx.get_ydata()
         scale = 2 * self.ax.get_ylim()[1]
@@ -164,7 +171,6 @@ class StoplightMetric(object):
                 color = 'yellow'
             else:
                 color = 'green'
-            # print(red, yellow, green)
         except IndexError:
             color = 'white'
 
@@ -182,7 +188,7 @@ class Tracker(object):
                  left=1., right=1.,
                  span=60, length=20, FPS=60,
                  feedback=False, invert=False,
-                 has_timer=False, has_colors=False):
+                 has_timer=False, secondary_task=False):
         # Set some limits
         ax.set_ylim(-1.2, 1.2)
         statsax.set_ylim(-1.2, 1.2)
@@ -203,22 +209,25 @@ class Tracker(object):
         ax.add_patch(self.patchL)
         ax.add_patch(self.patchR)
 
-        # Draw colors
+        # Set up secondary task
+        self.secondary_task = secondary_task
         teal = read_png('imgs/TEAL.png')
         blue = read_png('imgs/BLUE.png')
         green = read_png('imgs/GREEN.png')
 
         axicon = fig.add_axes([.9,0.805,0.1,0.1])
         axicon.axis('off')
-        axicon.set_xticks([])
-        axicon.set_yticks([])
 
         self.teal = axicon.imshow(teal, aspect='equal', animated=True, visible=False)
         self.blue = axicon.imshow(blue, aspect='equal', animated=True, visible=False)
         self.green = axicon.imshow(green, aspect='equal', animated=True, visible=False)
 
-        if has_colors:
+        if secondary_task:
             self.teal.set_visible(True)
+
+        color_times = np.arange(5, length, 8, dtype=np.float)
+        color_times += + 3 * np.random.rand(len(color_times))
+        self.color_times = color_times
 
         # Disable ticks
         ax.set_title('Trial ' + str(trial))
@@ -233,12 +242,12 @@ class Tracker(object):
         self.frame = 0.
         self.FPS = FPS
         self.timer_start_value = 15
-        self.timer = array('f')
+        self.timer, self.secondary_task_color = array('f'), array('f')
         self.end_frame = length * FPS
         self.funckwds = funckwds
         self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
         self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
-        self.cursor = Cursor(ax,
+        self.cursor = Cursor(fig, ax,
                              use_joystick=use_joystick, invert=invert,
                              has_timer=has_timer)
         self.stoplight = StoplightMetric(statsax,
@@ -266,11 +275,37 @@ class Tracker(object):
             except:
                 timer = self.timer_start_value
 
-            self.cursor.txt.set_text('%2.2f' % (timer))
+            self.cursor.txt.set_text('%2.0f' % (timer))
             self.timer.append(timer)
 
             # Set colors value
-            pass
+            if self.secondary_task:
+                try:
+                    if self.frame/self.FPS > self.color_times[0]:
+                        self.color_times = self.color_times[1:]
+
+                        # Randomly select one of the lights to turn on
+                        random_choice = np.random.choice((BLUE, GREEN))
+                        self.teal.set_visible(False)
+                        self.blue.set_visible(False)
+                        self.green.set_visible(False)
+                        if random_choice == BLUE:
+                            self.blue.set_visible(True)
+                        elif random_choice == GREEN:
+                            self.green.set_visible(True)
+                except IndexError:
+                    pass
+
+            if self.teal.get_visible():
+                val = 0
+            elif self.blue.get_visible():
+                val = BLUE
+            elif self.green.get_visible():
+                val = GREEN
+            else:
+                val = -999
+            self.secondary_task_color.append(val)
+
 
             # Close when the simulation is over
             if self.frame >= self.end_frame:
@@ -306,16 +341,20 @@ class Tracker(object):
                 self.status = EXIT
                 plt.close()
 
-        # If the timer has ran out, reset the timer on click
-        if event.key is 'left' or event.key is 'right':
-            visibility = self.teal.get_visible()
-            print(visibility)
-            self.teal.set_visible(not visibility)
-            self.blue.set_visible(visibility)
+        # If the light is on, turn it off
+        visible = self.teal.get_visible()
+        if not visible:
+            if event.key == 'left' and self.blue.get_visible():
+                self.teal.set_visible(True)
+                self.blue.set_visible(False)
+            elif event.key == 'right' and self.green.get_visible():
+                self.teal.set_visible(True)
+                self.green.set_visible(False)
 
-            print(self.timer[-1])
+        # If the timer has ran out, reset the timer on click
+        if event.key is 'up' or event.key is 'down':
             if self.timer[-1] == 0.:
-                self.timer.append(self.timer_start_value)
+                self.timer[-1] = self.timer_start_value
 
 
     def results(self):
@@ -324,7 +363,8 @@ class Tracker(object):
         yg = self.ygs
         t = np.linspace(0, self.frame/self.FPS, len(y))
         timer = self.timer
-        d = np.vstack((t, inp, y, yg, timer)).T
+        secondary_task_color = self.secondary_task_color
+        d = np.vstack((t, inp, y, yg, timer, secondary_task_color)).T
 
         path = 'trials/'
         path += str(self.trial) + ' '
@@ -374,10 +414,12 @@ def RunTrial(kwds, show=False):
 
     # Start animation
     plt.show()
+
+    # Make sure our data logging is working
     d = tracker.results()
 
+    # Show results
     if show:
-        # Show results
         plots.Performance(d)
         plots.ShortLongColor('test', d)
 
@@ -395,8 +437,11 @@ funckwds2 = {'frequencyA': 0.6, 'frequencyB': 1.,
 
 ks = [  # 'Training' Trials
         {'trial': 0,
+         'length': 60,
          'has_timer': True,
-         'has_colors': True},
+         'funckwds': funckwds1,
+         # 'feedback': True,
+         'secondary_task': False},
 
         # {'trial': 1},
 
