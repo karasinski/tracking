@@ -8,7 +8,6 @@ import pygame
 import plots
 import time
 from matplotlib._png import read_png
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import seaborn as sns  # experiment with this...
 
 
@@ -20,13 +19,14 @@ FINISHED = 3
 BLUE = -1
 GREEN = 1
 
+
 class Cursor(object):
     def __init__(self, fig, ax, use_joystick=False, invert=False,
                  has_timer=False):
         self.use_joystick = use_joystick
         self.ax = ax
         self.invert = invert
-        self.lx = ax.axhline(xmin=.475, xmax=.525, color='r', animated=True)
+        self.lx = ax.axhline(xmin=.485, xmax=.515, color='r', animated=True)
         self.ly = ax.axvline(ymin=.475, ymax=.525, color='r', animated=True)
 
         self.ly.set_xdata(ax.get_xlim()[1]/2)
@@ -39,9 +39,9 @@ class Cursor(object):
             color = fig.get_facecolor()
 
         # Text location in axes coords
-        self.txt = ax.text(1.05, 0.93, '',
-                           transform=ax.transAxes, animated=True, color=color,
-                           size='x-large', ha='right', family='monospace')
+        self.timer = ax.text(1.05, 0.93, '',
+                             transform=ax.transAxes, animated=True, color=color,
+                             size='x-large', ha='right', family='monospace')
 
         # Connect
         if use_joystick:
@@ -125,7 +125,7 @@ class StoplightMetric(object):
         if feedback:
             color = 'k'
         else:
-            color = 'white'
+            color = '#EAEAF2'
 
         self.error = ax.plot(x[:window], np.zeros(window),
                              animated=True, color=color)[0]
@@ -172,12 +172,12 @@ class StoplightMetric(object):
             else:
                 color = 'green'
         except IndexError:
-            color = 'white'
+            color = '#EAEAF2'
 
         if self.feedback:
             self.ax.set_axis_bgcolor(color)
         else:
-            self.ax.set_axis_bgcolor('white')
+            self.ax.set_axis_bgcolor('#EAEAF2')
 
 
 class Tracker(object):
@@ -185,7 +185,7 @@ class Tracker(object):
                  trial=0,
                  use_joystick=False,
                  funckwds={},
-                 left=1., right=1.,
+                 history=1., preview=1.,
                  span=60, length=20, FPS=60,
                  feedback=False, invert=False,
                  has_timer=False, secondary_task=False):
@@ -194,17 +194,17 @@ class Tracker(object):
         statsax.set_ylim(-1.2, 1.2)
         ax.set_xlim(x[0], x[window])
 
-        # Add blockers on left and right
+        # Add blockers on history and preview
         half_width = ax.get_xlim()[1]/2
-        left_covered = half_width - left * half_width
-        right_covered = half_width + right * half_width
-        self.patchL = patches.Rectangle((0.01, -1.),
-                                        left_covered, 2.09,
-                                        color='white',
+        history_covered = half_width - history * half_width
+        preview_covered = half_width + preview * half_width
+        self.patchL = patches.Rectangle((0, -1.2),
+                                        history_covered, 2.4,
+                                        color='#EAEAF2',
                                         animated=True)
-        self.patchR = patches.Rectangle((right_covered, -1.),
-                                        half_width, 2.09,
-                                        color='white',
+        self.patchR = patches.Rectangle((preview_covered, -1.2),
+                                        half_width, 2.4,
+                                        color='#EAEAF2',
                                         animated=True)
         ax.add_patch(self.patchL)
         ax.add_patch(self.patchR)
@@ -215,7 +215,7 @@ class Tracker(object):
         blue = read_png('imgs/BLUE.png')
         green = read_png('imgs/GREEN.png')
 
-        axicon = fig.add_axes([.9,0.805,0.1,0.1])
+        axicon = fig.add_axes([.9, 0.805, 0.1, 0.1])
         axicon.axis('off')
 
         self.teal = axicon.imshow(teal, aspect='equal', animated=True, visible=False)
@@ -275,7 +275,7 @@ class Tracker(object):
             except:
                 timer = self.timer_start_value
 
-            self.cursor.txt.set_text('%2.0f' % (timer))
+            self.cursor.timer.set_text('%2.0f' % (timer))
             self.timer.append(timer)
 
             # Set colors value
@@ -306,7 +306,6 @@ class Tracker(object):
                 val = -999
             self.secondary_task_color.append(val)
 
-
             # Close when the simulation is over
             if self.frame >= self.end_frame:
                 self.status = FINISHED
@@ -326,11 +325,9 @@ class Tracker(object):
                 self.patchL, self.patchR,
                 self.cursor.lx, self.cursor.ly,
                 self.stoplight.ax,
-                self.stoplight.error,
-                self.cursor.txt,
-                self.teal,
-                self.blue,
-                self.green]
+                # self.stoplight.error,
+                self.cursor.timer,
+                self.teal, self.blue, self.green]
 
     def press(self, event):
         # Start the trial when the subject hits the space bar
@@ -352,10 +349,9 @@ class Tracker(object):
                 self.green.set_visible(False)
 
         # If the timer has ran out, reset the timer on click
-        if event.key is 'up' or event.key is 'down':
+        if event.key is 'left' or event.key is 'right':
             if self.timer[-1] == 0.:
                 self.timer[-1] = self.timer_start_value
-
 
     def results(self):
         inp = self.cursor.input
@@ -394,8 +390,8 @@ def RunTrial(kwds, show=False):
 
     # Merge input options with defaults
     defaults = {'use_joystick': True,
-                'left': 1.,
-                'right': 1.,
+                'history': 1.,
+                'preview': 1.,
                 'span': 1,
                 'funckwds': {},
                 'length': 60,
@@ -407,7 +403,7 @@ def RunTrial(kwds, show=False):
     # Configure animation
     tracker = Tracker(fig, ax, statsax, **kwds)
 
-    # This needs to be assigned so it can hang around to get called right below
+    # This needs to be assigned so it can hang around to get called below
     anim = FuncAnimation(fig, tracker,
                          interval=1000./kwds['FPS'],
                          blit=True, repeat=False)
@@ -428,20 +424,44 @@ x = np.linspace(0 * np.pi, 40 * np.pi, 10000)
 window = 1000
 half_w = int(window/2)
 
-funckwds1 = {'frequencyA': 0.6, 'frequencyB': 1.7,
-             'offsetA': 3, 'offsetB': 17,
+# funckwds1 = {'frequencyA': 0.9, 'frequencyB': 3.3,
+#              'offsetA': 0, 'offsetB': np.pi/7,
+#              'amplitudeA': 0.5, 'amplitudeB': .2}
+# funckwds2 = {'frequencyA': 8/1.177, 'frequencyB': 2.4,
+#              'offsetA': 17, 'offsetB': -np.pi/3,
+#              'amplitudeA': 0.3, 'amplitudeB': .6}
+
+funckwds1 = {'frequencyA': np.log(2), 'frequencyB': np.pi,
+             'offsetA': 3, 'offsetB': .17,
              'amplitudeA': 0.6, 'amplitudeB': .2}
-funckwds2 = {'frequencyA': 0.6, 'frequencyB': 1.,
+funckwds2 = {'frequencyA': np.log(3), 'frequencyB': np.log(7),
              'offsetA': 17, 'offsetB': 3,
              'amplitudeA': 0.6, 'amplitudeB': .4}
 
 ks = [  # 'Training' Trials
         {'trial': 0,
-         'length': 60,
-         'has_timer': True,
-         'funckwds': funckwds1,
-         # 'feedback': True,
-         'secondary_task': False},
+         'history': 0.01,
+         'preview': 0.01,
+         # 'has_timer': False,
+         # 'secondary_task': True,
+         'feedback': True,
+         'funckwds': funckwds2},
+
+         {'trial': 1,
+          'history': 0.1,
+          'preview': 0,
+          'has_timer': True,
+          # 'secondary_task': True,
+          # 'feedback': True,
+          'funckwds': funckwds2},
+
+         {'trial': 2,
+          'history': 0,
+          'preview': 0.1,
+          # 'has_timer': True,
+          'secondary_task': True,
+          # 'feedback': True,
+          'funckwds': funckwds1},
 
         # {'trial': 1},
 
@@ -449,12 +469,12 @@ ks = [  # 'Training' Trials
         #  'feedback': True},
 
         # {'trial': 3,
-        #  'left': .5,
-        #  'right': 0},
+        #  'history': .5,
+        #  'preview': 0},
 
         # {'trial': 4,
-        #  'left': .5,
-        #  'right': 0,
+        #  'history': .5,
+        #  'preview': 0,
         #  'feedback': True},
 
         # # 'Experiment' Trials
@@ -463,21 +483,21 @@ ks = [  # 'Training' Trials
 
         # {'trial': 6,
         #  'funckwds': funckwds2,
-        #  'left': .5,
-        #  'right': 0},
+        #  'history': .5,
+        #  'preview': 0},
 
         # {'trial': 7,
         #  'funckwds': funckwds1,
-        #  'left': .5,
-        #  'right': 0},
+        #  'history': .5,
+        #  'preview': 0},
 
         # {'trial': 8,
         #  'funckwds': funckwds2},
 
         # {'trial': 9,
         #  'funckwds': funckwds1,
-        #  'left': .5,
-        #  'right': 0,
+        #  'history': .5,
+        #  'preview': 0,
         #  'feedback': True},
 
         # {'trial': 10,
@@ -490,8 +510,8 @@ ks = [  # 'Training' Trials
 
         # {'trial': 12,
         #  'funckwds': funckwds2,
-        #  'left': .5,
-        #  'right': 0,
+        #  'history': .5,
+        #  'preview': 0,
         #  'feedback': True},
         ]
 
