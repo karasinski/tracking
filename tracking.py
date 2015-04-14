@@ -21,8 +21,7 @@ GREEN = 1
 
 
 class Cursor(object):
-    def __init__(self, fig, ax, use_joystick=False, invert=False,
-                 has_timer=False):
+    def __init__(self, ax, use_joystick=False, invert=False):
         self.use_joystick = use_joystick
         self.ax = ax
         self.invert = invert
@@ -32,16 +31,6 @@ class Cursor(object):
         self.ly.set_xdata(ax.get_xlim()[1]/2)
         self.lx.set_ydata(0)
         self.input = array('f')
-
-        if has_timer:
-            color = 'black'
-        else:
-            color = fig.get_facecolor()
-
-        # Text location in axes coords
-        self.timer = ax.text(1.05, 0.93, '',
-                             transform=ax.transAxes, animated=True, color=color,
-                             size='x-large', ha='right', family='monospace')
 
         # Connect
         if use_joystick:
@@ -180,6 +169,20 @@ class StoplightMetric(object):
             self.ax.set_axis_bgcolor('#EAEAF2')
 
 
+class Timer(object):
+    def __init__(self, fig, ax, timer_start='', has_timer=False):
+        if has_timer:
+            color = 'black'
+        else:
+            color = fig.get_facecolor()
+
+        # Text location in axes coords
+        self.timer = ax.annotate(str(timer_start), xy=(.5, 0),
+                                 xycoords='axes fraction', fontsize=16,
+                                 textcoords='offset points', ha='right',
+                                 va='bottom', color=color, animated=True)
+
+
 class Tracker(object):
     def __init__(self, fig, ax, statsax,
                  trial=0,
@@ -215,7 +218,7 @@ class Tracker(object):
         blue = read_png('imgs/BLUE.png')
         green = read_png('imgs/GREEN.png')
 
-        axicon = fig.add_axes([.9, 0.805, 0.1, 0.1])
+        axicon = fig.add_axes([.475, 0.45, 0.075, 0.1])
         axicon.axis('off')
 
         self.teal = axicon.imshow(teal, aspect='equal', animated=True, visible=False)
@@ -247,9 +250,10 @@ class Tracker(object):
         self.funckwds = funckwds
         self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
         self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
-        self.cursor = Cursor(fig, ax,
-                             use_joystick=use_joystick, invert=invert,
-                             has_timer=has_timer)
+        self.cursor = Cursor(ax,
+                             use_joystick=use_joystick, invert=invert)
+        self.timer_obj = Timer(fig, axicon, timer_start=self.timer_start_value,
+                               has_timer=has_timer)
         self.stoplight = StoplightMetric(statsax,
                                          span=span * FPS, feedback=feedback)
         self.ys, self.ygs = array('f'), array('f')
@@ -275,7 +279,7 @@ class Tracker(object):
             except:
                 timer = self.timer_start_value
 
-            self.cursor.timer.set_text('%2.0f' % (timer))
+            self.timer_obj.timer.set_text('%2.0f' % (timer))
             self.timer.append(timer)
 
             # Set colors value
@@ -326,7 +330,7 @@ class Tracker(object):
                 self.cursor.lx, self.cursor.ly,
                 self.stoplight.ax,
                 # self.stoplight.error,
-                self.cursor.timer,
+                self.timer_obj.timer,
                 self.teal, self.blue, self.green]
 
     def press(self, event):
@@ -409,6 +413,7 @@ def RunTrial(kwds, show=False):
                          blit=True, repeat=False)
 
     # Start animation
+    # plt.tight_layout()
     plt.show()
 
     # Make sure our data logging is working
@@ -438,81 +443,25 @@ funckwds2 = {'frequencyA': np.log(3), 'frequencyB': np.log(7),
              'offsetA': 17, 'offsetB': 3,
              'amplitudeA': 0.6, 'amplitudeB': .4}
 
-ks = [  # 'Training' Trials
-        {'trial': 0,
-         'history': 0.01,
-         'preview': 0.01,
-         # 'has_timer': False,
-         # 'secondary_task': True,
-         'feedback': True,
-         'funckwds': funckwds2},
+ks = [
+         {'trial': 0,
+          'history': 0.01,
+          'preview': 0.01,
+          'feedback': True,
+          'funckwds': funckwds2},
 
          {'trial': 1,
           'history': 0.1,
           'preview': 0,
           'has_timer': True,
-          # 'secondary_task': True,
-          # 'feedback': True,
+          'feedback': True,
           'funckwds': funckwds2},
 
          {'trial': 2,
           'history': 0,
           'preview': 0.1,
-          # 'has_timer': True,
           'secondary_task': True,
-          # 'feedback': True,
           'funckwds': funckwds1},
-
-        # {'trial': 1},
-
-        # {'trial': 2,
-        #  'feedback': True},
-
-        # {'trial': 3,
-        #  'history': .5,
-        #  'preview': 0},
-
-        # {'trial': 4,
-        #  'history': .5,
-        #  'preview': 0,
-        #  'feedback': True},
-
-        # # 'Experiment' Trials
-        # {'trial': 5,
-        #  'funckwds': funckwds1},
-
-        # {'trial': 6,
-        #  'funckwds': funckwds2,
-        #  'history': .5,
-        #  'preview': 0},
-
-        # {'trial': 7,
-        #  'funckwds': funckwds1,
-        #  'history': .5,
-        #  'preview': 0},
-
-        # {'trial': 8,
-        #  'funckwds': funckwds2},
-
-        # {'trial': 9,
-        #  'funckwds': funckwds1,
-        #  'history': .5,
-        #  'preview': 0,
-        #  'feedback': True},
-
-        # {'trial': 10,
-        #  'funckwds': funckwds1,
-        #  'feedback': True},
-
-        # {'trial': 11,
-        #  'funckwds': funckwds2,
-        #  'feedback': True},
-
-        # {'trial': 12,
-        #  'funckwds': funckwds2,
-        #  'history': .5,
-        #  'preview': 0,
-        #  'feedback': True},
         ]
 
 # Run the experiment
