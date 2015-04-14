@@ -26,8 +26,8 @@ class Cursor(object):
         self.use_joystick = use_joystick
         self.ax = ax
         self.invert = invert
-        self.lx = ax.axhline(xmin=.485, xmax=.515, color='r', animated=True)
-        self.ly = ax.axvline(ymin=.475, ymax=.525, color='r', animated=True)
+        self.lx = ax.axhline(xmin=.49, xmax=.51, color='r', animated=True, alpha=.3)
+        self.ly = ax.axvline(ymin=0, ymax=0, color='r', animated=True, alpha=.3)
 
         self.ly.set_xdata(ax.get_xlim()[1]/2)
         self.lx.set_ydata(0)
@@ -53,7 +53,7 @@ class Cursor(object):
 
     def update(self, status):
         if self.use_joystick:
-            sensitivity = 35  # larger -> less sensitive
+            sensitivity = 30  # larger -> less sensitive
             velocity = self.joystick.input()
 
             if status == INITIALIZED:
@@ -78,7 +78,7 @@ class Cursor(object):
         y = self.lx.get_ydata()
         scale = 2 * self.ax.get_ylim()[1]
         location = y / scale + 0.5
-        self.ly.set_ydata([location - .025, location + .025])
+        self.ly.set_ydata([location - .01, location + .01])
 
 
 class Joystick(object):
@@ -108,25 +108,12 @@ class StoplightMetric(object):
     def __init__(self, ax, span=60, feedback=False):
         self.ax = ax
         self.feedback = feedback
-        self.errs = []
+        self.errs = array('f')
         self.greens, self.yellows = [], []
         self.span = span  # average over 60 measurements @ 60FPS = 1 second
 
-        if feedback:
-            color = 'k'
-        else:
-            color = '#EAEAF2'
-
-        self.error = ax.plot(x[:window], np.zeros(window),
-                             animated=True, color=color)[0]
-
     def update(self, new_measurement):
         self.errs.append(new_measurement)
-
-        # Draw error
-        recent = np.zeros(window)
-        recent[window-len(self.errs[-window:]):] += self.errs[-window:]
-        self.error.set_ydata(recent)
 
         # Update colors
         self.updateColors()
@@ -179,7 +166,7 @@ class Timer(object):
 
         # Text location in axes coords
         self.timer = ax.annotate(str(timer_start), xy=(.5, 0),
-                                 xycoords='axes fraction', fontsize=16,
+                                 xycoords='axes fraction', fontsize=36,
                                  textcoords='offset points', ha='right',
                                  va='bottom', color=color, animated=True)
 
@@ -195,7 +182,6 @@ class Tracker(object):
                  has_timer=False, secondary_task=False):
         # Set some limits
         ax.set_ylim(-1.2, 1.2)
-        statsax.set_ylim(-1.2, 1.2)
         ax.set_xlim(x[0], x[window])
 
         # Add blockers on history and preview
@@ -232,9 +218,6 @@ class Tracker(object):
 
         # Disable ticks
         ax.set_title('Trial ' + str(trial))
-        ax.set_xticklabels([], visible=False), ax.set_xticks([])
-        ax.set_yticklabels([], visible=False), ax.set_yticks([])
-        ax.set_yticklabels([], visible=False), statsax.set_yticks([])
         fig.canvas.mpl_connect('key_press_event', self.press)
 
         # Finally initialize simulation
@@ -327,7 +310,6 @@ class Tracker(object):
                 self.patchL, self.patchR,
                 self.cursor.lx, self.cursor.ly,
                 self.stoplight.ax,
-                # self.stoplight.error,
                 self.timer_obj.timer,
                 self.teal, self.blue, self.green]
 
@@ -388,8 +370,6 @@ def draw_sin(t, a=1, f=1, o=0):
 
 def RunTrial(kwds, show=False):
     # Create a plot
-    # fig, (ax, statsax) = plt.subplots(nrows=2, figsize=(8, 9), sharex=True)
-
     fig = plt.figure(figsize=(8, 8))
     gs = gridspec.GridSpec(5, 4)
     ax = plt.subplot(gs[0:4, :])
@@ -398,9 +378,11 @@ def RunTrial(kwds, show=False):
     ax4 = plt.subplot(gs[4, 2])
     statsax = plt.subplot(gs[4, 3])
 
-    for ax_i in [ax2, ax3, ax4, statsax]:
+    for i, ax_i in enumerate([ax, ax2, ax3, ax4, statsax]):
         ax_i.set_xticklabels([], visible=False), ax_i.set_xticks([])
         ax_i.set_yticklabels([], visible=False), ax_i.set_yticks([])
+        if i == 0:
+            continue
         ax_i.set_axis_bgcolor((.75, .75, .75, 1))
 
     # Merge input options with defaults
@@ -456,21 +438,21 @@ funckwds2 = {'frequencyA': np.log(3), 'frequencyB': np.log(7),
 
 ks = [
          {'trial': 0,
-          'history': 0.01,
-          'preview': 0.01,
+          'history': 0.2,
+          'preview': 0.,
           'feedback': True,
           'funckwds': funckwds2},
 
          {'trial': 1,
-          'history': 0.1,
-          'preview': 0,
+          'history': 0.,
+          'preview': 0.2,
           'has_timer': True,
           'feedback': True,
           'funckwds': funckwds2},
 
          {'trial': 2,
-          'history': 0,
-          'preview': 0.1,
+          'history': 0.,
+          'preview': 0.005,
           'secondary_task': True,
           'funckwds': funckwds1},
         ]
