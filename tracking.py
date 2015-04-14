@@ -1,4 +1,5 @@
 from __future__ import division, print_function
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import matplotlib.patches as patches
@@ -8,7 +9,7 @@ import pygame
 import plots
 import time
 from matplotlib._png import read_png
-import seaborn as sns  # experiment with this...
+import seaborn as sns
 
 
 UNINITIALIZED = 0
@@ -166,7 +167,7 @@ class StoplightMetric(object):
         if self.feedback:
             self.ax.set_axis_bgcolor(color)
         else:
-            self.ax.set_axis_bgcolor('#EAEAF2')
+            self.ax.set_axis_bgcolor((.75, .75, .75, 1))
 
 
 class Timer(object):
@@ -184,7 +185,7 @@ class Timer(object):
 
 
 class Tracker(object):
-    def __init__(self, fig, ax, statsax,
+    def __init__(self, fig, ax, ax2, statsax,
                  trial=0,
                  use_joystick=False,
                  funckwds={},
@@ -218,12 +219,9 @@ class Tracker(object):
         blue = read_png('imgs/BLUE.png')
         green = read_png('imgs/GREEN.png')
 
-        axicon = fig.add_axes([.475, 0.45, 0.075, 0.1])
-        axicon.axis('off')
-
-        self.teal = axicon.imshow(teal, aspect='equal', animated=True, visible=False)
-        self.blue = axicon.imshow(blue, aspect='equal', animated=True, visible=False)
-        self.green = axicon.imshow(green, aspect='equal', animated=True, visible=False)
+        self.teal = ax2.imshow(teal, aspect='equal', animated=True, visible=False)
+        self.blue = ax2.imshow(blue, aspect='equal', animated=True, visible=False)
+        self.green = ax2.imshow(green, aspect='equal', animated=True, visible=False)
 
         if secondary_task:
             self.teal.set_visible(True)
@@ -252,7 +250,7 @@ class Tracker(object):
         self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
         self.cursor = Cursor(ax,
                              use_joystick=use_joystick, invert=invert)
-        self.timer_obj = Timer(fig, axicon, timer_start=self.timer_start_value,
+        self.timer_obj = Timer(fig, ax2, timer_start=self.timer_start_value,
                                has_timer=has_timer)
         self.stoplight = StoplightMetric(statsax,
                                          span=span * FPS, feedback=feedback)
@@ -390,7 +388,20 @@ def draw_sin(t, a=1, f=1, o=0):
 
 def RunTrial(kwds, show=False):
     # Create a plot
-    fig, (ax, statsax) = plt.subplots(nrows=2, figsize=(8, 9), sharex=True)
+    # fig, (ax, statsax) = plt.subplots(nrows=2, figsize=(8, 9), sharex=True)
+
+    fig = plt.figure(figsize=(8, 8))
+    gs = gridspec.GridSpec(5, 4)
+    ax = plt.subplot(gs[0:4, :])
+    ax2 = plt.subplot(gs[4, 0])
+    ax3 = plt.subplot(gs[4, 1])
+    ax4 = plt.subplot(gs[4, 2])
+    statsax = plt.subplot(gs[4, 3])
+
+    for ax_i in [ax2, ax3, ax4, statsax]:
+        ax_i.set_xticklabels([], visible=False), ax_i.set_xticks([])
+        ax_i.set_yticklabels([], visible=False), ax_i.set_yticks([])
+        ax_i.set_axis_bgcolor((.75, .75, .75, 1))
 
     # Merge input options with defaults
     defaults = {'use_joystick': True,
@@ -405,7 +416,7 @@ def RunTrial(kwds, show=False):
     kwds = dict(defaults.items() + kwds.items())
 
     # Configure animation
-    tracker = Tracker(fig, ax, statsax, **kwds)
+    tracker = Tracker(fig, ax, ax2, statsax, **kwds)
 
     # This needs to be assigned so it can hang around to get called below
     anim = FuncAnimation(fig, tracker,
@@ -413,7 +424,7 @@ def RunTrial(kwds, show=False):
                          blit=True, repeat=False)
 
     # Start animation
-    # plt.tight_layout()
+    plt.tight_layout()
     plt.show()
 
     # Make sure our data logging is working
