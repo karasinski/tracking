@@ -26,8 +26,8 @@ class Cursor(object):
         self.use_joystick = use_joystick
         self.ax = ax
         self.invert = invert
-        self.lx = ax.axhline(xmin=.49, xmax=.51, color='r', animated=True, alpha=.3)
-        self.ly = ax.axvline(ymin=0, ymax=0, color='r', animated=True, alpha=.3)
+        self.lx = ax.axhline(xmin=.49, xmax=.51, color='k', animated=True)
+        self.ly = ax.axvline(ymin=0, ymax=0, color='k', animated=True)
 
         self.ly.set_xdata(ax.get_xlim()[1]/2)
         self.lx.set_ydata(0)
@@ -171,6 +171,15 @@ class Timer(object):
                                  va='bottom', color=color, animated=True)
 
 
+class Target(object):
+    def __init__(self, ax):
+        self.x = x[half_w]
+        self.target = ax.plot(self.x, 0, 'bo', alpha=0.5, markersize=12, animated=True)[0]
+
+    def update(self, y):
+        self.target.set_ydata(y)
+
+
 class Tracker(object):
     def __init__(self, fig, ax, ax2, statsax,
                  trial=0,
@@ -237,6 +246,7 @@ class Tracker(object):
                                has_timer=has_timer)
         self.stoplight = StoplightMetric(statsax,
                                          span=span * FPS, feedback=feedback)
+        self.target = Target(ax)
         self.ys, self.ygs = array('f'), array('f')
 
     def __call__(self, frame):
@@ -299,7 +309,11 @@ class Tracker(object):
         # Update guidance, plot recent data
         low = self.frame
         high = window + self.frame
-        self.guidance.set_ydata(func(x, **self.funckwds)[low:high])
+        f = func(x, **self.funckwds)[low:high]
+        self.guidance.set_ydata(f)
+
+        # Send center to target
+        self.target.update(f[len(f)/2])
 
         recent = np.zeros(half_w)
         recent[half_w-len(self.ys[-half_w:]):] += self.ys[-half_w:]
@@ -308,6 +322,7 @@ class Tracker(object):
         # List of things to be updated
         return [self.guidance, self.actual,
                 self.patchL, self.patchR,
+                self.target.target,
                 self.cursor.lx, self.cursor.ly,
                 self.stoplight.ax,
                 self.timer_obj.timer,
@@ -387,8 +402,8 @@ def RunTrial(kwds, show=False):
 
     # Merge input options with defaults
     defaults = {'use_joystick': True,
-                'history': 1.,
-                'preview': 1.,
+                'history': 0.,
+                'preview': 0.,
                 'span': 1,
                 'funckwds': {},
                 'length': 60,
@@ -422,39 +437,80 @@ x = np.linspace(0 * np.pi, 40 * np.pi, 10000)
 window = 1000
 half_w = int(window/2)
 
-# funckwds1 = {'frequencyA': 0.9, 'frequencyB': 3.3,
-#              'offsetA': 0, 'offsetB': np.pi/7,
-#              'amplitudeA': 0.5, 'amplitudeB': .2}
-# funckwds2 = {'frequencyA': 8/1.177, 'frequencyB': 2.4,
-#              'offsetA': 17, 'offsetB': -np.pi/3,
-#              'amplitudeA': 0.3, 'amplitudeB': .6}
-
-funckwds1 = {'frequencyA': np.log(2), 'frequencyB': np.pi,
+funckwds1 = {'frequencyA': 0.9, 'frequencyB': 3.3,
+             'offsetA': 0, 'offsetB': np.pi/7,
+             'amplitudeA': 0.5, 'amplitudeB': .2}
+funckwds2 = {'frequencyA': np.log(2), 'frequencyB': np.pi,
              'offsetA': 3, 'offsetB': .17,
              'amplitudeA': 0.6, 'amplitudeB': .2}
-funckwds2 = {'frequencyA': np.log(3), 'frequencyB': np.log(7),
+funckwds3 = {'frequencyA': np.log(3), 'frequencyB': np.log(7),
              'offsetA': 17, 'offsetB': 3,
              'amplitudeA': 0.6, 'amplitudeB': .4}
 
 ks = [
-         {'trial': 0,
-          'history': 0.2,
-          'preview': 0.,
-          'feedback': True,
-          'funckwds': funckwds2},
-
+         # Refresher
          {'trial': 1,
-          'history': 0.,
-          'preview': 0.2,
-          'has_timer': True,
-          'feedback': True,
-          'funckwds': funckwds2},
+          'history': 0.2},
 
          {'trial': 2,
-          'history': 0.,
-          'preview': 0.005,
-          'secondary_task': True,
+          'history': 0.1,
           'funckwds': funckwds1},
+
+         {'trial': 3,
+          'history': 0.005,
+          'funckwds': funckwds1},
+
+         # Experiment
+         {'trial': 4,
+          'history': 0.2,
+          'funckwds': funckwds2},
+
+         {'trial': 5,
+          'history': 0.05,
+          'funckwds': funckwds3},
+
+         {'trial': 6,
+          'history': 0.005,
+          'funckwds': funckwds3},
+
+         {'trial': 7,
+          'history': 0.05,
+          'funckwds': funckwds2},
+
+         {'trial': 8,
+          'history': 0.2,
+          'funckwds': funckwds3},
+
+         {'trial': 9,
+          'history': 0.1,
+          'funckwds': funckwds3},
+
+         {'trial': 10,
+          'history': 0.005,
+          'funckwds': funckwds2},
+
+         {'trial': 11,
+          'history': 0.1,
+          'funckwds': funckwds2},
+
+         # {'trial': 0,
+         #  'history': 0.2,
+         #  'preview': 0.,
+         #  'feedback': True,
+         #  'funckwds': funckwds2},
+
+         # {'trial': 1,
+         #  'history': 0.,
+         #  'preview': 0.2,
+         #  'has_timer': True,
+         #  'feedback': True,
+         #  'funckwds': funckwds2},
+
+         # {'trial': 2,
+         #  'history': 0.,
+         #  'preview': 0.005,
+         #  'secondary_task': True,
+         #  'funckwds': funckwds1},
         ]
 
 # Run the experiment
