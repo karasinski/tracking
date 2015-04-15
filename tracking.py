@@ -457,7 +457,6 @@ ks = [
           'funckwds': funckwds1},
 
          {'trial': 3,
-          'history': 0.005,
           'funckwds': funckwds1},
 
          # Experiment
@@ -470,7 +469,6 @@ ks = [
           'funckwds': funckwds3},
 
          {'trial': 6,
-          'history': 0.005,
           'funckwds': funckwds3},
 
          {'trial': 7,
@@ -486,7 +484,6 @@ ks = [
           'funckwds': funckwds3},
 
          {'trial': 10,
-          'history': 0.005,
           'funckwds': funckwds2},
 
          {'trial': 11,
