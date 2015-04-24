@@ -239,7 +239,7 @@ class Tracker(object):
         self.stoplight = StoplightMetric(statsax,
                                          span=span * FPS, feedback=feedback)
         self.target = Target(ax)
-        self.ys, self.ygs = array('f'), array('f')
+        self.ys, self.ygs, self.t = array('f'), array('f'), array('d')
 
     def __call__(self, frame):
         self.cursor.update(self.status)
@@ -250,6 +250,7 @@ class Tracker(object):
             # Log cursor position
             self.ys.append(self.cursor.marker.get_ydata())
             self.ygs.append(self.guidance.get_ydata()[half_w])
+            self.t.append(time.time())
 
             err = self.ys[-1] - self.ygs[-1]
             self.stoplight.update(err)
@@ -313,7 +314,7 @@ class Tracker(object):
 
         # List of things to be updated
         return [self.guidance,
-                self.actual,
+                # self.actual,
                 self.patchL, self.patchR,
                 self.target.target,
                 self.cursor.marker,
@@ -347,13 +348,14 @@ class Tracker(object):
                 self.timer[-1] = self.timer_start_value
 
     def results(self):
+        t = np.linspace(0, self.frame/self.FPS, len(y))
         inp = self.cursor.input
         y = self.ys
         yg = self.ygs
-        t = np.linspace(0, self.frame/self.FPS, len(y))
         timer = self.timer
         secondary_task_color = self.secondary_task_color
-        d = np.vstack((t, inp, y, yg, timer, secondary_task_color)).T
+        t = self.t
+        d = np.vstack((t, inp, y, yg, timer, secondary_task_color, t)).T
 
         path = 'trials/'
         path += str(self.trial) + ' '

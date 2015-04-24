@@ -140,11 +140,12 @@ def load_data(file_paths):
             if subj in path:
                 trial_number = path.split('/')[2].split(' ')[0]
                 trial = pd.DataFrame.from_csv(path, header=None)
-                trial[4] = np.sqrt(np.square(trial[3] - trial[2]))
+                trial[7] = np.sqrt(np.square(trial[3] - trial[2]))
+                trial = trial.reset_index()
                 s[trial_number] = trial
         data[subj] = pd.Panel.from_dict(s)
     d = pd.Panel4D.from_dict(data)
-    d.minor_axis = ['Input', 'Subject', 'Guidance', 'Error']
+    d.minor_axis = ['Timestep', 'Input', 'Subject', 'Guidance', 'Timer', 'Secondary Task', 'Time', 'Error']
     d = d[natural_sort(d.labels)]
     return d
 
@@ -153,10 +154,10 @@ trials = pd.DataFrame.from_dict(trials).T.convert_objects(convert_numeric=True)
 file_paths = get_filepaths('trials/')
 d = load_data(file_paths)
 
-feedback = list(trials.query('Feedback').index)
-feedback = [str(trial) for trial in feedback]
-no_feedback = list(trials.query('not Feedback').index)
-no_feedback = [str(trial) for trial in no_feedback]
+# feedback = list(trials.query('Feedback').index)
+# feedback = [str(trial) for trial in feedback]
+# no_feedback = list(trials.query('not Feedback').index)
+# no_feedback = [str(trial) for trial in no_feedback]
 
 # none = list(trials.query('Visible == "None"').index)
 # none = [str(trial) for trial in none]
@@ -165,10 +166,10 @@ no_feedback = [str(trial) for trial in no_feedback]
 # allv = list(trials.query('Visible == "All"').index)
 # allv = [str(trial) for trial in allv]
 
-nf = d[:, no_feedback, :, 'Error'].mean().mean()
-f  = d[:,    feedback, :, 'Error'].mean().mean()
-subj_improvement = 100 * (nf - f) / nf
+# nf = d[:, no_feedback, :, 'Error'].mean().mean()
+# f  = d[:,    feedback, :, 'Error'].mean().mean()
+# subj_improvement = 100 * (nf - f) / nf
 
-print("\nRelative average improvement of {0:3.3f}%. \n".format(np.mean(subj_improvement)))
-print("Or by subject:")
-print(subj_improvement)
+# print("\nRelative average improvement of {0:3.3f}%. \n".format(np.mean(subj_improvement)))
+# print("Or by subject:")
+# print(subj_improvement)
