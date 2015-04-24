@@ -129,22 +129,17 @@ class StoplightMetric(object):
         self.yellows.append(yellow.mean())
 
     def drawColors(self):
-        greens = np.array(self.greens)[1:]
-        yellows = np.array(self.yellows)[1:]
+        green = np.array(self.greens)[-1]
+        yellow = np.array(self.yellows)[-1]
 
-        # Check the latest value and find the largest--this is inefficient
         color = ''
         try:
-            red = 1 - yellows[-1]
-            yellow = yellows[-1] - greens[-1]
-            green = greens[-1]
+            red = 1 - yellow
+            yellow = yellow - green
+            green = green
 
-            if red > yellow and red > green:
-                color = 'red'
-            elif yellow > red and yellow > green:
-                color = 'yellow'
-            else:
-                color = 'green'
+            c = {'red': red, 'yellow': yellow, 'green': green}
+            color = max(c, key=c.get)
         except IndexError:
             color = '#EAEAF2'
 
@@ -322,9 +317,9 @@ class Tracker(object):
                 self.patchL, self.patchR,
                 self.target.target,
                 self.cursor.marker,
-                # self.stoplight.ax,
-                # self.timer_obj.timer,
-                # self.teal, self.blue, self.green
+                self.stoplight.ax,
+                self.timer_obj.timer,
+                self.teal, self.blue, self.green
                 ]
 
     def press(self, event):
@@ -435,8 +430,6 @@ def RunTrial(kwds, show=False):
 x = np.linspace(0 * np.pi, 40 * np.pi, 10000)
 window = 1000
 half_w = int(window/2)
-
-
 
 # Run the experiment
 for k in ks:
