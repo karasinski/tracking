@@ -1,4 +1,5 @@
 from __future__ import division, print_function
+from trials import ks
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -26,11 +27,12 @@ class Cursor(object):
         self.use_joystick = use_joystick
         self.ax = ax
         self.invert = invert
-        self.lx = ax.axhline(xmin=.49, xmax=.51, color='k', animated=True)
-        self.ly = ax.axvline(ymin=0, ymax=0, color='k', animated=True)
 
-        self.ly.set_xdata(ax.get_xlim()[1]/2)
-        self.lx.set_ydata(0)
+        self.marker = ax.plot(ax.get_xlim()[1]/2, 0,
+                              'k', marker=r'$\times$',
+                              markersize=12, animated=True)[0]
+        self.marker.set_ydata(0)
+
         self.input = array('f')
 
         # Connect
@@ -49,7 +51,7 @@ class Cursor(object):
             return
 
         y = event.ydata
-        self.lx.set_ydata(y)
+        self.marker.set_ydata(y)
 
     def update(self, status):
         if self.use_joystick:
@@ -61,7 +63,7 @@ class Cursor(object):
 
             if self.invert:
                 velocity *= -1
-            y = self.lx.get_ydata()
+            y = self.marker.get_ydata()
             y += velocity / sensitivity
 
             # Bind position to screen limits
@@ -69,16 +71,11 @@ class Cursor(object):
                 y = 1.2
             elif y < -1.2:
                 y = -1.2
-            self.lx.set_ydata(y)
+            self.marker.set_ydata(y)
         else:
             if status == INITIALIZED:
                 # Can't really log your mouse input...
                 self.input.append(0)
-
-        y = self.lx.get_ydata()
-        scale = 2 * self.ax.get_ylim()[1]
-        location = y / scale + 0.5
-        self.ly.set_ydata([location - .01, location + .01])
 
 
 class Joystick(object):
@@ -256,7 +253,7 @@ class Tracker(object):
             self.frame += 1
 
             # Log cursor position
-            self.ys.append(self.cursor.lx.get_ydata())
+            self.ys.append(self.cursor.marker.get_ydata())
             self.ygs.append(self.guidance.get_ydata()[half_w])
 
             err = self.ys[-1] - self.ygs[-1]
@@ -320,13 +317,15 @@ class Tracker(object):
         self.actual.set_ydata(recent)
 
         # List of things to be updated
-        return [self.guidance, self.actual,
+        return [self.guidance,
+                self.actual,
                 self.patchL, self.patchR,
                 self.target.target,
-                self.cursor.lx, self.cursor.ly,
-                self.stoplight.ax,
-                self.timer_obj.timer,
-                self.teal, self.blue, self.green]
+                self.cursor.marker,
+                # self.stoplight.ax,
+                # self.timer_obj.timer,
+                # self.teal, self.blue, self.green
+                ]
 
     def press(self, event):
         # Start the trial when the subject hits the space bar
@@ -406,7 +405,7 @@ def RunTrial(kwds, show=False):
                 'preview': 0.,
                 'span': 1,
                 'funckwds': {},
-                'length': 60,
+                'length': 30,
                 'FPS': 60,
                 'feedback': False,
                 'invert': True}
@@ -437,78 +436,7 @@ x = np.linspace(0 * np.pi, 40 * np.pi, 10000)
 window = 1000
 half_w = int(window/2)
 
-funckwds1 = {'frequencyA': 0.9, 'frequencyB': 3.3,
-             'offsetA': 0, 'offsetB': np.pi/7,
-             'amplitudeA': 0.5, 'amplitudeB': .2}
-funckwds2 = {'frequencyA': np.log(2), 'frequencyB': np.pi,
-             'offsetA': 3, 'offsetB': .17,
-             'amplitudeA': 0.6, 'amplitudeB': .2}
-funckwds3 = {'frequencyA': np.log(3), 'frequencyB': np.log(7),
-             'offsetA': 17, 'offsetB': 3,
-             'amplitudeA': 0.6, 'amplitudeB': .4}
 
-ks = [
-         # Refresher
-         {'trial': 1,
-          'history': 0.2},
-
-         {'trial': 2,
-          'history': 0.1,
-          'funckwds': funckwds1},
-
-         {'trial': 3,
-          'funckwds': funckwds1},
-
-         # Experiment
-         {'trial': 4,
-          'history': 0.2,
-          'funckwds': funckwds2},
-
-         {'trial': 5,
-          'history': 0.05,
-          'funckwds': funckwds3},
-
-         {'trial': 6,
-          'funckwds': funckwds3},
-
-         {'trial': 7,
-          'history': 0.05,
-          'funckwds': funckwds2},
-
-         {'trial': 8,
-          'history': 0.2,
-          'funckwds': funckwds3},
-
-         {'trial': 9,
-          'history': 0.1,
-          'funckwds': funckwds3},
-
-         {'trial': 10,
-          'funckwds': funckwds2},
-
-         {'trial': 11,
-          'history': 0.1,
-          'funckwds': funckwds2},
-
-         # {'trial': 0,
-         #  'history': 0.2,
-         #  'preview': 0.,
-         #  'feedback': True,
-         #  'funckwds': funckwds2},
-
-         # {'trial': 1,
-         #  'history': 0.,
-         #  'preview': 0.2,
-         #  'has_timer': True,
-         #  'feedback': True,
-         #  'funckwds': funckwds2},
-
-         # {'trial': 2,
-         #  'history': 0.,
-         #  'preview': 0.005,
-         #  'secondary_task': True,
-         #  'funckwds': funckwds1},
-        ]
 
 # Run the experiment
 for k in ks:
