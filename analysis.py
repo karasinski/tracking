@@ -5,100 +5,7 @@ import re
 from collections import OrderedDict
 import numpy as np
 import matplotlib.pyplot as plt
-
-
-trials = {
-    1: {
-        'Feedback': False,
-        'Visible': 'All',
-        'Path': 0,
-    },
-    2: {
-        'Feedback': True,
-        'Visible': 'All',
-        'Path': 0,
-    },
-    3: {
-        'Feedback': False,
-        'Visible': 'Some',
-        'Path': 0,
-    },
-    4: {
-        'Feedback': True,
-        'Visible': 'Some',
-        'Path': 0,
-    },
-    5: {
-        'Feedback': False,
-        'Visible': 'None',
-        'Path': 0,
-    },
-    6: {
-        'Feedback': True,
-        'Visible': 'None',
-        'Path': 0,
-    },
-    7: {
-        'Feedback': False,
-        'Visible': 'All',
-        'Path': 1,
-    },
-    8: {
-        'Feedback': True,
-        'Visible': 'Some',
-        'Path': 2,
-    },
-    9: {
-        'Feedback': False,
-        'Visible': 'None',
-        'Path': 2,
-    },
-    10: {
-        'Feedback': True,
-        'Visible': 'Some',
-        'Path': 1,
-    },
-    11: {
-        'Feedback': False,
-        'Visible': 'None',
-        'Path': 1,
-    },
-    12: {
-        'Feedback': False,
-        'Visible': 'All',
-        'Path': 2,
-    },
-    13: {
-        'Feedback': True,
-        'Visible': 'None',
-        'Path': 1,
-    },
-    14: {
-        'Feedback': True,
-        'Visible': 'All',
-        'Path': 1,
-    },
-    15: {
-        'Feedback': True,
-        'Visible': 'All',
-        'Path': 2,
-    },
-    16: {
-        'Feedback': False,
-        'Visible': 'Some',
-        'Path': 1,
-    },
-    17: {
-        'Feedback': False,
-        'Visible': 'Some',
-        'Path': 2,
-    },
-    18: {
-        'Feedback': True,
-        'Visible': 'None',
-        'Path': 2,
-    }
-}
+from trials import ks
 
 
 def natural_sort(l):
@@ -146,31 +53,56 @@ def load_data(file_paths):
                 s[trial_number] = trial
         data[subj] = pd.Panel.from_dict(s)
     d = pd.Panel4D.from_dict(data)
-    d.minor_axis = ['Timestep', 'Input', 'Subject', 'Guidance', 'Timer', 'Secondary Task', 'PaceError', 'Error']
+    d.minor_axis = ['Timestep', 'Input', 'Actual', 'Guidance',
+                    'Timer', 'Secondary Task', 'PaceError', 'Error']
     d = d[natural_sort(d.labels)]
     return d
 
 
-trials = pd.DataFrame.from_dict(trials).T.convert_objects(convert_numeric=True)
+def load_data2(file_paths):
+    subjs = []
+    for path in file_paths:
+        subjs.append(path.split('/')[1])
+    subjs = list(set(subjs))
+
+    data = pd.DataFrame()
+    for subj in subjs:
+        for path in file_paths:
+            if subj in path:
+                trial_number = path.split('/')[2].split(' ')[0]
+                trial = pd.DataFrame.from_csv(path, header=None)
+                trial[6] = trial[6].diff()
+                trial[7] = np.sqrt(np.square(trial[3] - trial[2]))
+                trial[8] = subj.split('Subject')[1]
+                trial[9] = trial_number
+                trial = trial.reset_index()
+                trial.columns = ['Timestep', 'Input', 'Actual', 'Guidance',
+                                 'Timer', 'Secondary Task', 'PaceError',
+                                 'Error', 'Subject', 'Trial']
+                data = pd.concat((data, trial))
+
+    data = data.reset_index().convert_objects(convert_numeric=True)
+    return data
+
+
+def load_trials(ks):
+    trials = pd.DataFrame(ks)
+    names = []
+    for k in ks:
+        try:
+            names.append(k['funckwds']['name'])
+        except:
+            names.append(0)
+
+    trials['funckwds'] = names
+    trials = trials.fillna('0.')
+
+    trials_columns = [el.title() for el in trials.columns.tolist()]
+    trials.columns = trials_columns
+
+    return trials
+
+trials = load_trials(ks)
 file_paths = get_filepaths('trials/')
-d = load_data(file_paths)
-
-# feedback = list(trials.query('Feedback').index)
-# feedback = [str(trial) for trial in feedback]
-# no_feedback = list(trials.query('not Feedback').index)
-# no_feedback = [str(trial) for trial in no_feedback]
-
-# none = list(trials.query('Visible == "None"').index)
-# none = [str(trial) for trial in none]
-# some = list(trials.query('Visible == "Some"').index)
-# some = [str(trial) for trial in some]
-# allv = list(trials.query('Visible == "All"').index)
-# allv = [str(trial) for trial in allv]
-
-# nf = d[:, no_feedback, :, 'Error'].mean().mean()
-# f  = d[:,    feedback, :, 'Error'].mean().mean()
-# subj_improvement = 100 * (nf - f) / nf
-
-# print("\nRelative average improvement of {0:3.3f}%. \n".format(np.mean(subj_improvement)))
-# print("Or by subject:")
-# print(subj_improvement)
+data = load_data2(file_paths)
+d = data.merge(trials, how='inner')

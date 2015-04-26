@@ -237,6 +237,7 @@ class Tracker(object):
                              use_joystick=use_joystick, invert=invert)
         self.timer_obj = Timer(fig, ax2, timer_start=self.timer_start_value,
                                has_timer=has_timer)
+        self.has_timer = has_timer
         self.stoplight = StoplightMetric(statsax,
                                          span=span * FPS, feedback=feedback)
         self.target = Target(ax)
@@ -265,7 +266,10 @@ class Tracker(object):
                 timer = self.timer_start_value
 
             self.timer_obj.timer.set_text('%2.0f' % (timer))
-            self.timer.append(timer)
+            if self.has_timer:
+                self.timer.append(timer)
+            else:
+                self.timer.append(np.nan)
 
             # Set colors value
             if self.secondary_task:
@@ -292,7 +296,7 @@ class Tracker(object):
             elif self.green.get_visible():
                 val = GREEN
             else:
-                val = -999
+                val = np.nan
             self.secondary_task_color.append(val)
 
             # Close when the simulation is over
@@ -365,7 +369,7 @@ class Tracker(object):
         return d
 
 
-def func(t,
+def func(t, name=0,
          frequencyA=0.5, frequencyB=0,
          offsetA=0, offsetB=0,
          amplitudeA=1, amplitudeB=1):

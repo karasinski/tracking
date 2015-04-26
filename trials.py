@@ -1,13 +1,16 @@
 import numpy as np
 
 
-funckwds1 = {'frequencyA': 0.9, 'frequencyB': 3.3,
+funckwds1 = {'name': 1,
+             'frequencyA': 0.9, 'frequencyB': 3.3,
              'offsetA': 0, 'offsetB': np.pi/7,
              'amplitudeA': 0.5, 'amplitudeB': .2}
-funckwds2 = {'frequencyA': np.log(2), 'frequencyB': np.pi,
+funckwds2 = {'name': 2,
+             'frequencyA': np.log(2), 'frequencyB': np.pi,
              'offsetA': 3, 'offsetB': .17,
              'amplitudeA': 0.6, 'amplitudeB': .2}
-funckwds3 = {'frequencyA': np.log(3), 'frequencyB': np.log(7),
+funckwds3 = {'name': 3,
+             'frequencyA': np.log(3), 'frequencyB': np.log(7),
              'offsetA': 17, 'offsetB': 3,
              'amplitudeA': 0.6, 'amplitudeB': .4}
 ks = [
