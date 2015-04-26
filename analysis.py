@@ -140,12 +140,13 @@ def load_data(file_paths):
             if subj in path:
                 trial_number = path.split('/')[2].split(' ')[0]
                 trial = pd.DataFrame.from_csv(path, header=None)
+                trial[6] = trial[6].diff()
                 trial[7] = np.sqrt(np.square(trial[3] - trial[2]))
                 trial = trial.reset_index()
                 s[trial_number] = trial
         data[subj] = pd.Panel.from_dict(s)
     d = pd.Panel4D.from_dict(data)
-    d.minor_axis = ['Timestep', 'Input', 'Subject', 'Guidance', 'Timer', 'Secondary Task', 'Time', 'Error']
+    d.minor_axis = ['Timestep', 'Input', 'Subject', 'Guidance', 'Timer', 'Secondary Task', 'PaceError', 'Error']
     d = d[natural_sort(d.labels)]
     return d
 

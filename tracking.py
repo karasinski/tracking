@@ -11,6 +11,7 @@ import plots
 import time
 from matplotlib._png import read_png
 import seaborn as sns
+import gc
 
 
 UNINITIALIZED = 0
@@ -348,10 +349,10 @@ class Tracker(object):
                 self.timer[-1] = self.timer_start_value
 
     def results(self):
-        t = np.linspace(0, self.frame/self.FPS, len(y))
         inp = self.cursor.input
         y = self.ys
         yg = self.ygs
+        t = np.linspace(0, self.frame/self.FPS, len(y))
         timer = self.timer
         secondary_task_color = self.secondary_task_color
         t = self.t
@@ -436,3 +437,5 @@ half_w = int(window/2)
 # Run the experiment
 for k in ks:
     RunTrial(k)
+    time.sleep(2)
+    gc.collect()
