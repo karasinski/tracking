@@ -246,7 +246,12 @@ class Tracker(object):
         self.cursor.update(self.status)
 
         if self.status == INITIALIZED:
-            self.frame += 1
+            try:
+                dt = time.time() - self.t[-1]
+                dt = int(round(dt/(1./60)))
+            except:
+                dt = 1
+            self.frame += dt
 
             # Log cursor position
             self.ys.append(self.cursor.marker.get_ydata())
