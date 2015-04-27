@@ -71,13 +71,14 @@ def load_data2(file_paths):
             if subj in path:
                 trial_number = path.split('/')[2].split(' ')[0]
                 trial = pd.DataFrame.from_csv(path, header=None)
+                trial[7] = trial[7] - trial[6]
                 trial[6] = trial[6].diff()
-                trial[7] = np.sqrt(np.square(trial[3] - trial[2]))
-                trial[8] = subj.split('Subject')[1]
-                trial[9] = trial_number
+                trial[8] = np.sqrt(np.square(trial[3] - trial[2]))
+                trial[9] = subj.split('Subject')[1]
+                trial[10] = trial_number
                 trial = trial.reset_index()
                 trial.columns = ['Timestep', 'Input', 'Actual', 'Guidance',
-                                 'Timer', 'Secondary Task', 'PaceError',
+                                 'Timer', 'Secondary Task', 'PaceError', 'LoopTime',
                                  'Error', 'Subject', 'Trial']
                 data = pd.concat((data, trial))
 

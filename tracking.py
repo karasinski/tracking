@@ -11,7 +11,6 @@ import plots
 import time
 from matplotlib._png import read_png
 import seaborn as sns
-import gc
 
 
 UNINITIALIZED = 0
@@ -241,7 +240,7 @@ class Tracker(object):
         self.stoplight = StoplightMetric(statsax,
                                          span=span * FPS, feedback=feedback)
         self.target = Target(ax)
-        self.ys, self.ygs, self.t = array('f'), array('f'), array('d')
+        self.ys, self.ygs, self.t, self.t2 = array('f'), array('f'), array('d'), array('d')
 
     def __call__(self, frame):
         self.cursor.update(self.status)
@@ -258,15 +257,15 @@ class Tracker(object):
             self.stoplight.update(err)
 
             # Set timer value
-            try:
-                timer = self.timer[-1] - 1./self.FPS
-                if timer < 0:
-                    timer = 0
-            except:
-                timer = self.timer_start_value
-
-            self.timer_obj.timer.set_text('%2.0f' % (timer))
             if self.has_timer:
+                try:
+                    timer = self.timer[-1] - 1./self.FPS
+                    if timer < 0:
+                        timer = 0
+                except:
+                    timer = self.timer_start_value
+
+                self.timer_obj.timer.set_text('%2.0f' % (timer))
                 self.timer.append(timer)
             else:
                 self.timer.append(np.nan)
@@ -289,20 +288,15 @@ class Tracker(object):
                 except IndexError:
                     pass
 
-            if self.teal.get_visible():
-                val = 0
-            elif self.blue.get_visible():
-                val = BLUE
-            elif self.green.get_visible():
-                val = GREEN
+                if self.teal.get_visible():
+                    val = 0
+                elif self.blue.get_visible():
+                    val = BLUE
+                elif self.green.get_visible():
+                    val = GREEN
+                self.secondary_task_color.append(val)
             else:
-                val = np.nan
-            self.secondary_task_color.append(val)
-
-            # Close when the simulation is over
-            if self.frame >= self.end_frame:
-                self.status = FINISHED
-                plt.close()
+                self.secondary_task_color.append(np.nan)
 
         # Update guidance, plot recent data
         low = self.frame
@@ -316,6 +310,15 @@ class Tracker(object):
         recent = np.zeros(half_w)
         recent[half_w-len(self.ys[-half_w:]):] += self.ys[-half_w:]
         self.actual.set_ydata(recent)
+
+        # Prayer
+        if self.status == INITIALIZED:
+            self.t2.append(time.time())
+
+        # Close when the simulation is over
+        if self.frame >= self.end_frame:
+            self.status = FINISHED
+            plt.close()
 
         # List of things to be updated
         return [self.guidance,
@@ -360,7 +363,8 @@ class Tracker(object):
         timer = self.timer
         secondary_task_color = self.secondary_task_color
         t = self.t
-        d = np.vstack((t, inp, y, yg, timer, secondary_task_color, t)).T
+        t2 = self.t2
+        d = np.vstack((t, inp, y, yg, timer, secondary_task_color, t, t2)).T
 
         path = 'trials/'
         path += str(self.trial) + ' '
@@ -441,5 +445,3 @@ half_w = int(window/2)
 # Run the experiment
 for k in ks:
     RunTrial(k)
-    time.sleep(2)
-    gc.collect()
