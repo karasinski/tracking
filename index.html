@@ -49,6 +49,96 @@ Once this is finished you can run the experiment by:
 <pre><code>$ python tracking.py
 </code></pre>
 
+The Subject can then control the start of each trial by pressing the spacebar.
+<br>
+<br>
+
+  <h3>
+<a class="anchor" aria-hidden="true"><span class="octicon octicon-link"></span></a>Trial Parameters</h3>
+Running <code>tracking.py</code> will read the trials indicated in the <code>trials.py</code> file. Each trial is defined by a dict, which has several optional keys. These keys (and their default values) are:
+
+<style>
+th {
+  color: #444;
+};
+</style>
+<center>
+<table style='width:50%'>
+    <tr>
+        <th>key</th>
+        <th>value</th>
+    </tr>
+    <tr>
+        <td>use_joystick</td>
+        <td>True</td>
+    </tr>
+    <tr>
+        <td>history</td>
+        <td>0.</td>
+    </tr>
+    <tr>
+        <td>preview</td>
+        <td>0.</td>
+    </tr>
+    <tr>
+        <td>span</td>
+        <td>1</td>
+    </tr>
+    <tr>
+        <td>funckwds</td>
+        <td>{}</td>
+    </tr>
+    <tr>
+        <td>length</td>
+        <td>30</td>
+    </tr>
+    <tr>
+        <td>FPS</td>
+        <td>60</td>
+    </tr>
+    <tr>
+        <td>feedback</td>
+        <td>False</td>
+    </tr>
+    <tr>
+        <td>invert</td>
+        <td>True</td>
+    </tr>
+    <tr>
+        <td>secondary_task</td>
+        <td>False</td>
+    </tr>
+    <tr>
+        <td>timer</td>
+        <td>False</td>
+    </tr>
+</table>
+</center>
+
+The joystick parameter enables the joystick for control of the pointer. Setting this to False allows you to use the mouse instead. Note that this program has been configured to work with a <a href='http://www.3dconnexion.com/products/spacemouse/spacemousewireless.html'>3Dconnexion SpaceMouse</a>, and that the axis value in the Joystick class may need to be modified to work with other joysticks.
+<br>
+<br>
+
+The history parameter sets the amount of the Subject's path that is shown. This value can range from 0 to 1, where 0 shows no history and 1 shows the full window's width of history. The preview parameter is similar to the history parameter, but instead modifies the amount of guidance to be shown to the Subject. Again, a 0 would show no upcoming guidance, while a 1 would show the full window's width of guidance. 
+<br>
+<br>
+
+The span parameter adjusts the number of seconds of data in the rolling window stoplight metric. A value around 1 second seems to give a reasonable response. Less than this value makes the feedback too noisy, while a larger value creates too much lag.
+<br>
+<br>
+
+The funckwds parameter allows you to pass optional arguments into the guidance creation. It's probably best if this option isn't touched. The length parameter adjusts the number of seconds that the trial lasts for (setting this value too high will break the program, but values of >240 will bore the subjects). The FPS parameter adjust the framerate, but this value should also not be touched. matplotlib's FuncAnimation function is at the heart of setting the framerate, so it's doubtful I can do much. Still, feel free to contact me if you're seeing obvious framerate issues.
+<br>
+<br>
+
+The feedback parameter turns on the stoplight feedback is set to True. The invert parameter will invert the joystick if modified.
+<br>
+<br>
+
+The secondary_task and timer parameters enable secondary tasks if their values are set to True. The secondary_task parameter enables the colored light response used in the lunar lander experiment. Pressing left on the keyboard will turn off a blue light, while pressing right on the keyboard will turn off a green light. These task will be further documented at a later date.
+
+<br>
+<br>
 
 <h3>
 <a id="support-or-contact" class="anchor" href="#support-or-contact" aria-hidden="true"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
