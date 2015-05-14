@@ -11,6 +11,7 @@ import plots
 import time
 from matplotlib._png import read_png
 import seaborn as sns
+import os
 
 
 UNINITIALIZED = 0
@@ -372,6 +373,13 @@ class Tracker(object):
         d = np.vstack((t, inp, y, yg, timer, secondary_task_color, t, t2)).T
 
         path = 'trials/'
+
+        try:
+            os.makedirs(path)
+        except OSError:
+            if not os.path.isdir(path):
+                raise
+
         path += str(self.trial) + ' '
         path += str(int(time.time()))
         np.savetxt(path, d, delimiter=",")
