@@ -1,18 +1,24 @@
 from __future__ import division, print_function
-from trials import ks
+from array import array
+import os
+import time
+
+import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 import matplotlib.patches as patches
-import numpy as np
-from array import array
-import pygame
-import plots
-import time
+from matplotlib.animation import FuncAnimation
 from matplotlib._png import read_png
-import seaborn as sns
-import os
 
+import seaborn as sns
+import numpy as np
+import pygame
+
+from trials import ks
+import plots
+
+
+mpl.rcParams['toolbar'] = 'None'
 
 UNINITIALIZED = 0
 INITIALIZED = 1
