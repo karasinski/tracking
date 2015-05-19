@@ -16,7 +16,8 @@ funckwds3 = {'name': 3,
 ks = [
          # Refresher
          {'trial': 1,
-          'preview': 0.2},
+          'preview': 0.2,
+          'secondary_task': True},
 
          {'trial': 2,
           'preview': 0.1,
@@ -53,7 +54,7 @@ ks = [
           'funckwds': funckwds2},
 
          {'trial': 11,
-          'preview': 0.1,
+          'preview': 0.2,
           'funckwds': funckwds2},
 
          {'trial': 12,
@@ -68,7 +69,7 @@ ks = [
           'funckwds': funckwds2},
 
          {'trial': 15,
-          'preview': 0.2,
+          'preview': 0.1,
           'funckwds': funckwds2},
 
          {'trial': 16,
