@@ -16,8 +16,7 @@ funckwds3 = {'name': 3,
 ks = [
          # Refresher
          {'trial': 1,
-          'preview': 0.2,
-          'secondary_task': True},
+          'preview': 0.2},
 
          {'trial': 2,
           'preview': 0.1,
