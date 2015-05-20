@@ -1,10 +1,12 @@
 from __future__ import division, print_function
-import pandas as pd
 import os
 import re
-from collections import OrderedDict
-import numpy as np
+
 import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import seaborn as sns
+
 from trials import ks
 
 
@@ -35,31 +37,6 @@ def get_filepaths(directory):
 
 
 def load_data(file_paths):
-    subjs = []
-    for path in file_paths:
-        subjs.append(path.split('/')[1])
-    subjs = list(set(subjs))
-
-    data = OrderedDict()
-    for subj in subjs:
-        s = OrderedDict()
-        for path in file_paths:
-            if subj in path:
-                trial_number = path.split('/')[2].split(' ')[0]
-                trial = pd.DataFrame.from_csv(path, header=None)
-                trial[6] = trial[6].diff()
-                trial[7] = np.sqrt(np.square(trial[3] - trial[2]))
-                trial = trial.reset_index()
-                s[trial_number] = trial
-        data[subj] = pd.Panel.from_dict(s)
-    d = pd.Panel4D.from_dict(data)
-    d.minor_axis = ['Timestep', 'Input', 'Actual', 'Guidance',
-                    'Timer', 'Secondary Task', 'PaceError', 'Error']
-    d = d[natural_sort(d.labels)]
-    return d
-
-
-def load_data2(file_paths):
     subjs = []
     for path in file_paths:
         subjs.append(path.split('/')[1])
@@ -105,5 +82,11 @@ def load_trials(ks):
 
 trials = load_trials(ks)
 file_paths = get_filepaths('trials/')
-data = load_data2(file_paths)
-d = data.merge(trials, how='inner')
+data = load_data(file_paths)
+d = data.merge(trials, how='inner').convert_objects(convert_numeric=True)
+
+trained_subjects = d.query('Trial > 3 & index > 180')
+m = trained_subjects.groupby('Preview').mean().Error.reset_index()
+s = trained_subjects.groupby('Preview').apply(pd.DataFrame.sem).Error.reset_index()
+m.plot(kind='scatter', x='Preview', y='Error', yerr=s.Error)
+plt.show()
