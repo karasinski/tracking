@@ -14,7 +14,7 @@ import seaborn as sns
 import numpy as np
 import pygame
 
-from trials import ks
+from trials import *
 import plots
 
 
@@ -113,6 +113,7 @@ class StoplightMetric(object):
         self.ax = ax
         self.feedback = feedback
         self.errs = array('f')
+        self.colors = []
         self.greens, self.yellows = [], []
         self.span = span  # average over 60 measurements @ 60FPS = 1 second
 
@@ -130,9 +131,9 @@ class StoplightMetric(object):
         else:
             low = t - self.span
 
-        green = np.abs(self.errs[low:]) < .05
+        green = np.abs(self.errs[low:]) < .08
         self.greens.append(green.mean())
-        yellow = np.abs(self.errs[low:]) < .15
+        yellow = np.abs(self.errs[low:]) > .08
         self.yellows.append(yellow.mean())
 
     def drawColors(self):
@@ -141,19 +142,17 @@ class StoplightMetric(object):
 
         color = ''
         try:
-            red = 1 - yellow
-            yellow = yellow - green
-            green = green
-
-            c = {'red': red, 'yellow': yellow, 'green': green}
+            c = {'yellow': yellow, 'green': green}
             color = max(c, key=c.get)
         except IndexError:
             color = '#EAEAF2'
 
-        if self.feedback:
+        if self.feedback == FEEDBACK_ON:
             self.ax.set_axis_bgcolor(color)
+            self.colors.append(color)
         else:
             self.ax.set_axis_bgcolor((.75, .75, .75, 1))
+            self.colors.append(np.NaN)
 
 
 class Timer(object):
@@ -186,7 +185,7 @@ class Tracker(object):
                  funckwds={},
                  history=1., preview=1.,
                  span=60, length=20, FPS=60,
-                 feedback=False, invert=False,
+                 feedback=FEEDBACK_OFF, invert=False,
                  has_timer=False, secondary_task=False):
         # Set some limits
         ax.set_ylim(-1.2, 1.2)
@@ -238,6 +237,7 @@ class Tracker(object):
         self.end_frame = length * FPS
         self.funckwds = funckwds
         self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
+        self.guidance_path = generate_path(trial)
         self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
         self.cursor = Cursor(ax,
                              use_joystick=use_joystick, invert=invert)
@@ -311,13 +311,13 @@ class Tracker(object):
                 self.secondary_task_color.append(np.nan)
 
         # Update guidance, plot recent data
-        low = self.frame
-        high = window + self.frame
-        f = func(x, **self.funckwds)[low:high]
+        low = int(self.frame)
+        high = int(window + self.frame)
+        f = self.guidance_path[low:high]
         self.guidance.set_ydata(f)
 
         # Send center to target
-        self.target.update(f[len(f)/2])
+        self.target.update(f[int(len(f)/2)])
 
         recent = np.zeros(half_w)
         recent[half_w-len(self.ys[-half_w:]):] += self.ys[-half_w:]
@@ -333,13 +333,13 @@ class Tracker(object):
             plt.close()
 
         # List of things to be updated
-        return [self.guidance,
+        return [# self.guidance,
                 # self.actual,
                 self.patchL, self.patchR,
                 self.target.target,
                 self.cursor.marker,
                 self.stoplight.ax,
-                self.timer_obj.timer,
+                # self.timer_obj.timer,
                 self.teal, self.blue, self.green
                 ]
 
@@ -372,11 +372,13 @@ class Tracker(object):
         y = self.ys
         yg = self.ygs
         t = np.linspace(0, self.frame/self.FPS, len(y))
-        timer = self.timer
+        # timer = self.timer
         secondary_task_color = self.secondary_task_color
+        stoplight = self.stoplight.colors
         t = self.t
         t2 = self.t2
-        d = np.vstack((t, inp, y, yg, timer, secondary_task_color, t, t2)).T
+        d = np.vstack((inp, y, yg, secondary_task_color, stoplight, t, t2)).T
+        labels = ['Input', 'y', 'yg', 'SecondaryColor', 'StoplightColor', 'Time1', 'Time2']
 
         path = 'trials/'
 
@@ -388,23 +390,12 @@ class Tracker(object):
 
         path += str(self.trial) + ' '
         path += str(int(time.time()))
-        np.savetxt(path, d, delimiter=",")
+
+        df = pd.DataFrame(d)
+        df.columns = labels
+        df.to_csv(path)
+        # np.savetxt(path, d, delimiter=",")
         return d
-
-
-def func(t, name=0,
-         frequencyA=0.5, frequencyB=0,
-         offsetA=0, offsetB=0,
-         amplitudeA=1, amplitudeB=1):
-
-    f = draw_sin(t, a=amplitudeA, f=frequencyA, o=offsetA)
-    f += draw_sin(t, a=amplitudeB, f=frequencyB, o=offsetB)
-    f = f / max(abs(f))
-    return f
-
-
-def draw_sin(t, a=1, f=1, o=0):
-    return a * np.sin(f * (t + o))
 
 
 def RunTrial(kwds, show=False):
@@ -432,8 +423,9 @@ def RunTrial(kwds, show=False):
                 'funckwds': {},
                 'length': 30,
                 'FPS': 60,
-                'feedback': False,
-                'invert': True}
+                'feedback': True,
+                'invert': True,
+                'secondary_task': True}
     kwds = dict(defaults.items() + kwds.items())
 
     # Configure animation
