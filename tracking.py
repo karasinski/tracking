@@ -15,7 +15,6 @@ import numpy as np
 import pygame
 
 from trials import *
-import plots
 
 
 mpl.rcParams['toolbar'] = 'None'
@@ -131,9 +130,9 @@ class StoplightMetric(object):
         else:
             low = t - self.span
 
-        green = np.abs(self.errs[low:]) < .08
+        green = np.abs(self.errs[low:]) < .15
         self.greens.append(green.mean())
-        yellow = np.abs(self.errs[low:]) > .08
+        yellow = np.abs(self.errs[low:]) > .15
         self.yellows.append(yellow.mean())
 
     def drawColors(self):
@@ -184,7 +183,7 @@ class Tracker(object):
                  use_joystick=False,
                  funckwds={},
                  history=1., preview=1.,
-                 span=60, length=20, FPS=60,
+                 span=1, length=20, FPS=60,
                  feedback=FEEDBACK_OFF, invert=False,
                  has_timer=False, secondary_task=False):
         # Set some limits
@@ -254,17 +253,19 @@ class Tracker(object):
         self.cursor.update(self.status)
 
         if self.status == INITIALIZED:
+            t = time.time()
+
             try:
-                dt = time.time() - self.t[-1]
+                dt = t - self.t[-1]
                 dt = int(round(dt/(1/60.)))
-            except:
+            except IndexError:
                 dt = 1
             self.frame += dt
 
             # Log cursor position
             self.ys.append(self.cursor.marker.get_ydata())
             self.ygs.append(self.guidance.get_ydata()[half_w])
-            self.t.append(time.time())
+            self.t.append(t)
 
             err = self.ys[-1] - self.ygs[-1]
             self.stoplight.update(err)
@@ -275,7 +276,7 @@ class Tracker(object):
                     timer = self.timer[-1] - 1./self.FPS
                     if timer < 0:
                         timer = 0
-                except:
+                except IndexError:
                     timer = self.timer_start_value
 
                 self.timer_obj.timer.set_text('%2.0f' % (timer))
@@ -328,21 +329,28 @@ class Tracker(object):
         if self.status == INITIALIZED:
             self.t2.append(time.time())
 
+            try:
+                diff = self.t2[-1] - self.t2[-2]
+                if diff < 1./self.FPS:
+                    time.sleep(1./self.FPS - diff)
+            except IndexError:
+                pass
+
         # Close when the simulation is over
         if self.frame >= self.end_frame:
             self.status = FINISHED
+            self.results()
             plt.close()
 
         # List of things to be updated
-        return [# self.guidance,
-                # self.actual,
+        return [self.guidance,
+                self.actual,
                 self.patchL, self.patchR,
                 self.target.target,
                 self.cursor.marker,
                 self.stoplight.ax,
-                # self.timer_obj.timer,
-                self.teal, self.blue, self.green
-                ]
+                self.timer_obj.timer,
+                self.teal, self.blue, self.green]
 
     def press(self, event):
         # Start the trial when the subject hits the space bar
@@ -398,7 +406,7 @@ class Tracker(object):
         return d
 
 
-def RunTrial(kwds, show=False):
+def RunTrial(kwds):
     # Create a plot
     fig = plt.figure(figsize=(8, 8))
     gs = gridspec.GridSpec(5, 4)
@@ -433,20 +441,12 @@ def RunTrial(kwds, show=False):
 
     # This needs to be assigned so it can hang around to get called below
     anim = FuncAnimation(fig, tracker,
-                         interval=1000./kwds['FPS'],
-                         blit=True, repeat=False)
+                         interval=10, blit=True, repeat=False)
 
     # Start animation
     plt.tight_layout()
     plt.show()
 
-    # Make sure our data logging is working
-    d = tracker.results()
-
-    # Show results
-    if show:
-        plots.Performance(d)
-        plots.ShortLongColor('test', d)
 
 # A couple global parameters
 x = np.linspace(0 * np.pi, 40 * np.pi, 10000)
