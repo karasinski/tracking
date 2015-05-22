@@ -22,8 +22,8 @@ def rescale(x):
 
 
 def generate_path(trial_number, length=30, fps=60.):
-    # Sweet, Barbara Townsend, and Leonard J. Trejo. 
-    # "The identification and modeling of visual cue 
+    # Sweet, Barbara Townsend, and Leonard J. Trejo.
+    # "The identification and modeling of visual cue
     # usage in manual control task experiments." (1999).
     data = [[.50,   6,  0.16],
             [.50,  10,  0.26],
@@ -38,7 +38,7 @@ def generate_path(trial_number, length=30, fps=60.):
             [.05, 311,  8.14],
             [.05, 521, 13.64]]
 
-    np.random.seed(42)
+    np.random.seed(trial_number)
     d = pd.DataFrame(data)
 
     offsets = np.random.uniform(-pi, pi, (100, 12))
@@ -61,39 +61,40 @@ sines = generate_path(1)
 ks = [
       # Refresher
       {'trial': 1,
-       'feedback': FEEDBACK_ON},
-      {'trial': 2,
-       'feedback': FEEDBACK_FALSE},
-      {'trial': 3,
-       'feedback': FEEDBACK_ON},
-      # Experiment
-      {'trial': 4,
        'feedback': FEEDBACK_OFF},
-      {'trial': 5,
-       'feedback': FEEDBACK_FALSE},
-      {'trial': 6,
-       'feedback': FEEDBACK_ON},
-      {'trial': 7,
-       'feedback': FEEDBACK_OFF},
-      {'trial': 8,
-       'feedback': FEEDBACK_FALSE},
-      {'trial': 9,
-       'feedback': FEEDBACK_ON},
-      {'trial': 10,
-       'feedback': FEEDBACK_OFF},
-      {'trial': 11,
-       'feedback': FEEDBACK_FALSE},
-      {'trial': 12,
-       'feedback': FEEDBACK_ON},
-      {'trial': 13,
-       'feedback': FEEDBACK_OFF},
-      {'trial': 14,
-       'feedback': FEEDBACK_FALSE},
-      {'trial': 15,
-       'feedback': FEEDBACK_ON},
-      {'trial': 16,
-       'feedback': FEEDBACK_OFF},
-      {'trial': 17,
-       'feedback': FEEDBACK_FALSE},
-      {'trial': 18,
-       'feedback': FEEDBACK_ON}]
+      # {'trial': 2,
+      #  'feedback': FEEDBACK_FALSE},
+      # {'trial': 3,
+      #  'feedback': FEEDBACK_ON},
+      # # Experiment
+      # {'trial': 4,
+      #  'feedback': FEEDBACK_OFF},
+      # {'trial': 5,
+      #  'feedback': FEEDBACK_FALSE},
+      # {'trial': 6,
+      #  'feedback': FEEDBACK_ON},
+      # {'trial': 7,
+      #  'feedback': FEEDBACK_OFF},
+      # {'trial': 8,
+      #  'feedback': FEEDBACK_FALSE},
+      # {'trial': 9,
+      #  'feedback': FEEDBACK_ON},
+      # {'trial': 10,
+      #  'feedback': FEEDBACK_OFF},
+      # {'trial': 11,
+      #  'feedback': FEEDBACK_FALSE},
+      # {'trial': 12,
+      #  'feedback': FEEDBACK_ON},
+      # {'trial': 13,
+      #  'feedback': FEEDBACK_OFF},
+      # {'trial': 14,
+      #  'feedback': FEEDBACK_FALSE},
+      # {'trial': 15,
+      #  'feedback': FEEDBACK_ON},
+      # {'trial': 16,
+      #  'feedback': FEEDBACK_OFF},
+      # {'trial': 17,
+      #  'feedback': FEEDBACK_FALSE},
+      # {'trial': 18,
+      #  'feedback': FEEDBACK_ON}
+      ]

@@ -219,8 +219,9 @@ class Tracker(object):
         if secondary_task:
             self.teal.set_visible(True)
 
-        color_times = np.arange(5, length, 8, dtype=np.float)
-        color_times += + 3 * np.random.rand(len(color_times))
+        np.random.seed(trial)
+        color_times = np.arange(5, length, 5, dtype=np.float)
+        color_times += 2 * np.random.rand(len(color_times))
         self.color_times = color_times
 
         # Disable ticks
@@ -255,7 +256,7 @@ class Tracker(object):
         if self.status == INITIALIZED:
             try:
                 dt = time.time() - self.t[-1]
-                dt = int(round(dt/(1./60)))
+                dt = int(round(dt/(1/60.)))
             except:
                 dt = 1
             self.frame += dt
@@ -371,7 +372,6 @@ class Tracker(object):
         inp = self.cursor.input
         y = self.ys
         yg = self.ygs
-        t = np.linspace(0, self.frame/self.FPS, len(y))
         # timer = self.timer
         secondary_task_color = self.secondary_task_color
         stoplight = self.stoplight.colors
