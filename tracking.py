@@ -146,12 +146,11 @@ class StoplightMetric(object):
         except IndexError:
             color = '#EAEAF2'
 
+        self.colors.append(color)
         if self.feedback == FEEDBACK_ON:
             self.ax.set_axis_bgcolor(color)
-            self.colors.append(color)
         else:
             self.ax.set_axis_bgcolor((.75, .75, .75, 1))
-            self.colors.append(np.NaN)
 
 
 class Timer(object):
@@ -386,7 +385,7 @@ class Tracker(object):
         t = self.t
         t2 = self.t2
         d = np.vstack((inp, y, yg, secondary_task_color, stoplight, t, t2)).T
-        labels = ['Input', 'y', 'yg', 'SecondaryColor', 'StoplightColor', 'Time1', 'Time2']
+        labels = ['Input', 'y', 'yg', 'SecondaryColor', 'FeedbackColor', 'Time1', 'Time2']
 
         path = 'trials/'
 

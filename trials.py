@@ -52,8 +52,8 @@ def generate_path(trial_number, length=30, fps=60.):
 
     return sines
 
-fps = 60
-t = np.linspace(0, 240, 240/(1/fps))
+fps = 60.
+t = np.linspace(0, 240, 240 * fps)
 # sines = generate_path(1)
 # sines.plot()
 # plt.show()
