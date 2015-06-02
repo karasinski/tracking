@@ -5,8 +5,8 @@ import pandas as pd
 # import matplotlib.pyplot as plt
 
 
-FEEDBACK_ON = 1
-FEEDBACK_OFF = 0
+FEEDBACK_ON    =  1
+FEEDBACK_OFF   =  0
 FEEDBACK_FALSE = -1
 
 
@@ -62,39 +62,39 @@ ks = [
       # Refresher
       {'trial': 1,
        'feedback': FEEDBACK_OFF},
-      # {'trial': 2,
-      #  'feedback': FEEDBACK_FALSE},
-      # {'trial': 3,
-      #  'feedback': FEEDBACK_ON},
+      {'trial': 2,
+       'feedback': FEEDBACK_FALSE},
+      {'trial': 3,
+       'feedback': FEEDBACK_ON},
       # # Experiment
-      # {'trial': 4,
-      #  'feedback': FEEDBACK_OFF},
-      # {'trial': 5,
-      #  'feedback': FEEDBACK_FALSE},
-      # {'trial': 6,
-      #  'feedback': FEEDBACK_ON},
-      # {'trial': 7,
-      #  'feedback': FEEDBACK_OFF},
-      # {'trial': 8,
-      #  'feedback': FEEDBACK_FALSE},
-      # {'trial': 9,
-      #  'feedback': FEEDBACK_ON},
-      # {'trial': 10,
-      #  'feedback': FEEDBACK_OFF},
-      # {'trial': 11,
-      #  'feedback': FEEDBACK_FALSE},
-      # {'trial': 12,
-      #  'feedback': FEEDBACK_ON},
-      # {'trial': 13,
-      #  'feedback': FEEDBACK_OFF},
-      # {'trial': 14,
-      #  'feedback': FEEDBACK_FALSE},
-      # {'trial': 15,
-      #  'feedback': FEEDBACK_ON},
-      # {'trial': 16,
-      #  'feedback': FEEDBACK_OFF},
-      # {'trial': 17,
-      #  'feedback': FEEDBACK_FALSE},
-      # {'trial': 18,
-      #  'feedback': FEEDBACK_ON}
+      {'trial': 4,
+       'feedback': FEEDBACK_OFF},
+      {'trial': 5,
+       'feedback': FEEDBACK_FALSE},
+      {'trial': 6,
+       'feedback': FEEDBACK_ON},
+      {'trial': 7,
+       'feedback': FEEDBACK_OFF},
+      {'trial': 8,
+       'feedback': FEEDBACK_FALSE},
+      {'trial': 9,
+       'feedback': FEEDBACK_ON},
+      {'trial': 10,
+       'feedback': FEEDBACK_OFF},
+      {'trial': 11,
+       'feedback': FEEDBACK_FALSE},
+      {'trial': 12,
+       'feedback': FEEDBACK_ON},
+      {'trial': 13,
+       'feedback': FEEDBACK_OFF},
+      {'trial': 14,
+       'feedback': FEEDBACK_FALSE},
+      {'trial': 15,
+       'feedback': FEEDBACK_ON},
+      {'trial': 16,
+       'feedback': FEEDBACK_OFF},
+      {'trial': 17,
+       'feedback': FEEDBACK_FALSE},
+      {'trial': 18,
+       'feedback': FEEDBACK_ON}
       ]

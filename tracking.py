@@ -13,6 +13,7 @@ from matplotlib._png import read_png
 import seaborn as sns
 import numpy as np
 import pygame
+import pykov
 
 from trials import *
 
@@ -107,14 +108,20 @@ class Joystick(object):
         return axis
 
 
-class StoplightMetric(object):
+class PerfFeedback(object):
     def __init__(self, ax, span=60, feedback=False):
         self.ax = ax
         self.feedback = feedback
         self.errs = array('f')
-        self.colors = []
+        self.colors, self.fake_colors = [], []
         self.greens, self.yellows = [], []
         self.span = span  # average over 60 measurements @ 60FPS = 1 second
+        self.fake = pykov.Chain({( 'green', 'yellow'): 0.0027697962776008903,
+                                 ('yellow',  'green'): 0.01670378619153675,
+                                 ( 'green',  'green'): 0.99723020372239912,
+                                 ('yellow', 'yellow'): 0.98329621380846322})
+        self.fake_walk = self.fake.walk(2000)
+
 
     def update(self, new_measurement):
         self.errs.append(new_measurement)
@@ -147,10 +154,16 @@ class StoplightMetric(object):
             color = '#EAEAF2'
 
         self.colors.append(color)
+        fake_color = color
         if self.feedback == FEEDBACK_ON:
             self.ax.set_axis_bgcolor(color)
+        elif self.feedback == FEEDBACK_FALSE:
+            step = len(self.greens)
+            fake_color = self.fake_walk[step]
+            self.ax.set_axis_bgcolor(fake_color)
         else:
             self.ax.set_axis_bgcolor((.75, .75, .75, 1))
+        self.fake_colors.append(fake_color)
 
 
 class Timer(object):
@@ -238,15 +251,14 @@ class Tracker(object):
         self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
         self.guidance_path = generate_path(trial)
         self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
-        self.cursor = Cursor(ax,
-                             use_joystick=use_joystick, invert=invert)
+        self.cursor = Cursor(ax, use_joystick=use_joystick, invert=invert)
         self.timer_obj = Timer(fig, ax2, timer_start=self.timer_start_value,
                                has_timer=has_timer)
         self.has_timer = has_timer
-        self.stoplight = StoplightMetric(statsax,
-                                         span=span * FPS, feedback=feedback)
+        self.perffeedback = PerfFeedback(statsax, span=span * FPS, feedback=feedback)
         self.target = Target(ax)
-        self.ys, self.ygs, self.t, self.t2 = array('f'), array('f'), array('d'), array('d')
+        self.ys, self.ygs = array('f'), array('f')
+        self.t, self.t2 = array('d'), array('d')
 
     def __call__(self, frame):
         self.cursor.update(self.status)
@@ -267,7 +279,7 @@ class Tracker(object):
             self.t.append(t)
 
             err = self.ys[-1] - self.ygs[-1]
-            self.stoplight.update(err)
+            self.perffeedback.update(err)
 
             # Set timer value
             if self.has_timer:
@@ -347,7 +359,7 @@ class Tracker(object):
                 self.patchL, self.patchR,
                 self.target.target,
                 self.cursor.marker,
-                self.stoplight.ax,
+                self.perffeedback.ax,
                 self.timer_obj.timer,
                 self.teal, self.blue, self.green]
 
@@ -381,11 +393,14 @@ class Tracker(object):
         yg = self.ygs
         # timer = self.timer
         secondary_task_color = self.secondary_task_color
-        stoplight = self.stoplight.colors
+        feedbackcolor = self.perffeedback.colors
+        fake_feedbackcolor = self.perffeedback.fake_colors
         t = self.t
         t2 = self.t2
-        d = np.vstack((inp, y, yg, secondary_task_color, stoplight, t, t2)).T
-        labels = ['Input', 'y', 'yg', 'SecondaryColor', 'FeedbackColor', 'Time1', 'Time2']
+        d = np.vstack((inp, y, yg, secondary_task_color,
+                       feedbackcolor, fake_feedbackcolor, t, t2)).T
+        labels = ['Input', 'y', 'yg', 'SecondaryColor',
+                  'FeedbackColor', 'FakeFeedbackColor', 'Time1', 'Time2']
 
         path = 'trials/'
 
@@ -401,7 +416,6 @@ class Tracker(object):
         df = pd.DataFrame(d)
         df.columns = labels
         df.to_csv(path)
-        # np.savetxt(path, d, delimiter=",")
         return d
 
 

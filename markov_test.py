@@ -17,7 +17,7 @@ def transition_matrix(data):
     return result
 
 fc = d.replace(('green', 'yellow'), (1, 0))
-res = fc.groupby('Trial').FeedbackColor.apply(transition_matrix)
+res = fc.groupby(('Subject', 'Trial')).FeedbackColor.apply(transition_matrix)
 res_sum = res.sum()
 res_dict = {('Good', 'Good'): res_sum[0, 0],
             ('Good', 'Bad'):  res_sum[0, 1],
@@ -39,3 +39,9 @@ for i in fc.Trial.unique():
     plt.ylim(-.25, 1.25)
     plt.legend(['A', 'B'], loc='lower right')
     plt.savefig(str(i) + '.pdf')
+
+# res_chain
+# Chain([(('Good',  'Bad'), 0.0027697962776008903),
+       # (( 'Bad', 'Good'), 0.01670378619153675),
+       # (('Good', 'Good'), 0.99723020372239912),
+       # (( 'Bad',  'Bad'), 0.98329621380846322)])
