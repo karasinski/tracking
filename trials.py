@@ -2,7 +2,6 @@ from __future__ import division, print_function
 import numpy as np
 from numpy import pi
 import pandas as pd
-# import matplotlib.pyplot as plt
 
 
 FEEDBACK_ON    =  1
@@ -44,7 +43,6 @@ def generate_path(trial_number, length=30, fps=60.):
     offsets = np.random.uniform(-pi, pi, (100, 12))
     d[3] = offsets[trial_number]
 
-    # sines = d.apply(f, axis=1)
     sines = d[:-4].apply(f, axis=1).T
     sines.index = t
     sines = sines.sum(axis=1)
@@ -54,47 +52,148 @@ def generate_path(trial_number, length=30, fps=60.):
 
 fps = 60.
 t = np.linspace(0, 240, 240 * fps)
-# sines = generate_path(1)
-# sines.plot()
-# plt.show()
 
 ks = [
-      # Refresher
+      # Training
       {'trial': 1,
-       'feedback': FEEDBACK_OFF},
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': False},
       {'trial': 2,
-       'feedback': FEEDBACK_FALSE},
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': False},
       {'trial': 3,
-       'feedback': FEEDBACK_ON},
-      # # Experiment
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': False},
       {'trial': 4,
-       'feedback': FEEDBACK_OFF},
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': False},
       {'trial': 5,
-       'feedback': FEEDBACK_FALSE},
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': False},
       {'trial': 6,
-       'feedback': FEEDBACK_ON},
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': False},
       {'trial': 7,
-       'feedback': FEEDBACK_OFF},
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': False},
       {'trial': 8,
-       'feedback': FEEDBACK_FALSE},
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': False},
       {'trial': 9,
-       'feedback': FEEDBACK_ON},
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': False},
       {'trial': 10,
-       'feedback': FEEDBACK_OFF},
-      {'trial': 11,
-       'feedback': FEEDBACK_FALSE},
-      {'trial': 12,
-       'feedback': FEEDBACK_ON},
-      {'trial': 13,
-       'feedback': FEEDBACK_OFF},
-      {'trial': 14,
-       'feedback': FEEDBACK_FALSE},
-      {'trial': 15,
-       'feedback': FEEDBACK_ON},
-      {'trial': 16,
-       'feedback': FEEDBACK_OFF},
-      {'trial': 17,
-       'feedback': FEEDBACK_FALSE},
-      {'trial': 18,
-       'feedback': FEEDBACK_ON}
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': False},
+
+      # Experiment
+      {'trial': 11,  # 28
+       'feedback': FEEDBACK_ON,
+       'secondary_task': False},
+      {'trial': 12,  # 14
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': False},
+      {'trial': 13,  # 19
+       'feedback': FEEDBACK_ON,
+       'secondary_task': True},
+      {'trial': 14,  # 15
+       'feedback': FEEDBACK_FALSE,
+       'secondary_task': True},
+      {'trial': 15,  # 24
+       'feedback': FEEDBACK_FALSE,
+       'secondary_task': False},
+      {'trial': 16,  # 20
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': False},
+      {'trial': 17,  # 11
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': True},
+      {'trial': 18,  # 12
+       'feedback': FEEDBACK_FALSE,
+       'secondary_task': False},
+      {'trial': 19,  # 23
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': True},
+      {'trial': 20,  # 22
+       'feedback': FEEDBACK_ON,
+       'secondary_task': False},
+      {'trial': 21,  # 25
+       'feedback': FEEDBACK_ON,
+       'secondary_task': True},
+      {'trial': 22,  # 13
+       'feedback': FEEDBACK_ON,
+       'secondary_task': True},
+      {'trial': 23,  # 18
+       'feedback': FEEDBACK_FALSE,
+       'secondary_task': False},
+      {'trial': 24,  # 27
+       'feedback': FEEDBACK_FALSE,
+       'secondary_task': True},
+      {'trial': 25,  # 26
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': False},
+      {'trial': 26,  # 17
+       'feedback': FEEDBACK_OFF,
+       'secondary_task': True},
+      {'trial': 27,  # 21
+       'feedback': FEEDBACK_FALSE,
+       'secondary_task': True},
+      {'trial': 28,  # 16
+       'feedback': FEEDBACK_ON,
+       'secondary_task': False}
       ]
+
+# {'trial': 11,
+#  'feedback': FEEDBACK_OFF,
+#  'secondary_task': True},
+# {'trial': 12,
+#  'feedback': FEEDBACK_FALSE,
+#  'secondary_task': False},
+# {'trial': 13,
+#  'feedback': FEEDBACK_ON,
+#  'secondary_task': True},
+# {'trial': 14,
+#  'feedback': FEEDBACK_OFF,
+#  'secondary_task': False},
+# {'trial': 15,
+#  'feedback': FEEDBACK_FALSE,
+#  'secondary_task': True},
+# {'trial': 16,
+#  'feedback': FEEDBACK_ON,
+#  'secondary_task': False},
+# {'trial': 17,
+#  'feedback': FEEDBACK_OFF,
+#  'secondary_task': True},
+# {'trial': 18,
+#  'feedback': FEEDBACK_FALSE,
+#  'secondary_task': False},
+# {'trial': 19,
+#  'feedback': FEEDBACK_ON,
+#  'secondary_task': True},
+# {'trial': 20,
+#  'feedback': FEEDBACK_OFF,
+#  'secondary_task': False},
+# {'trial': 21,
+#  'feedback': FEEDBACK_FALSE,
+#  'secondary_task': True},
+# {'trial': 22,
+#  'feedback': FEEDBACK_ON,
+#  'secondary_task': False},
+# {'trial': 23,
+#  'feedback': FEEDBACK_OFF,
+#  'secondary_task': True},
+# {'trial': 24,
+#  'feedback': FEEDBACK_FALSE,
+#  'secondary_task': False},
+# {'trial': 25,
+#  'feedback': FEEDBACK_ON,
+#  'secondary_task': True},
+# {'trial': 26,
+#  'feedback': FEEDBACK_OFF,
+#  'secondary_task': False},
+# {'trial': 27,
+#  'feedback': FEEDBACK_FALSE,
+#  'secondary_task': True},
+# {'trial': 28,
+#  'feedback': FEEDBACK_ON,
+#  'secondary_task': False}

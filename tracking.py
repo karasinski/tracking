@@ -265,13 +265,7 @@ class Tracker(object):
 
         if self.status == INITIALIZED:
             t = time.time()
-
-            try:
-                dt = t - self.t[-1]
-                dt = int(round(dt/(1/60.)))
-            except IndexError:
-                dt = 1
-            self.frame += dt
+            self.frame += 1
 
             # Log cursor position
             self.ys.append(self.cursor.marker.get_ydata())
@@ -339,12 +333,12 @@ class Tracker(object):
         # Prayer
         if self.status == INITIALIZED:
             self.t2.append(time.time())
-
             try:
-                diff = self.t2[-1] - self.t2[-2]
-                if diff < 1./self.FPS:
-                    time.sleep(1./self.FPS - diff)
-            except IndexError:
+                desired_time = self.frame / self.FPS
+                actual_time = self.t2[-1] - self.t[0]
+
+                time.sleep(desired_time - actual_time)
+            except (IndexError, IOError):
                 pass
 
         # Close when the simulation is over
@@ -444,9 +438,9 @@ def RunTrial(kwds):
                 'funckwds': {},
                 'length': 30,
                 'FPS': 60,
-                'feedback': True,
+                'feedback': FEEDBACK_OFF,
                 'invert': True,
-                'secondary_task': True}
+                'secondary_task': False}
     kwds = dict(defaults.items() + kwds.items())
 
     # Configure animation
@@ -454,7 +448,7 @@ def RunTrial(kwds):
 
     # This needs to be assigned so it can hang around to get called below
     anim = FuncAnimation(fig, tracker,
-                         interval=10, blit=True, repeat=False)
+                         interval=15, blit=True, repeat=False)
 
     # Start animation
     plt.tight_layout()
