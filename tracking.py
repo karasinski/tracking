@@ -28,6 +28,8 @@ FINISHED = 3
 BLUE = -1
 GREEN = 1
 
+NO_KEY = np.NaN
+
 
 class Cursor(object):
     def __init__(self, ax, use_joystick=False, invert=False):
@@ -259,6 +261,8 @@ class Tracker(object):
         self.target = Target(ax)
         self.ys, self.ygs = array('f'), array('f')
         self.t, self.t2 = array('d'), array('d')
+        self.current_key = NO_KEY
+        self.key_press = []
 
     def __call__(self, frame):
         self.cursor.update(self.status)
@@ -330,9 +334,10 @@ class Tracker(object):
         recent[half_w-len(self.ys[-half_w:]):] += self.ys[-half_w:]
         self.actual.set_ydata(recent)
 
-        # Prayer
         if self.status == INITIALIZED:
             self.t2.append(time.time())
+            self.key_press.append(self.current_key)
+            self.current_key = NO_KEY
             try:
                 desired_time = self.frame / self.FPS
                 actual_time = self.t2[-1] - self.t[0]
@@ -369,6 +374,7 @@ class Tracker(object):
         # If the light is on, turn it off
         visible = self.teal.get_visible()
         if not visible:
+            self.current_key = event.key
             if event.key == 'left' and self.blue.get_visible():
                 self.teal.set_visible(True)
                 self.blue.set_visible(False)
@@ -389,12 +395,15 @@ class Tracker(object):
         secondary_task_color = self.secondary_task_color
         feedbackcolor = self.perffeedback.colors
         fake_feedbackcolor = self.perffeedback.fake_colors
+        key_press = self.key_press
         t = self.t
         t2 = self.t2
         d = np.vstack((inp, y, yg, secondary_task_color,
-                       feedbackcolor, fake_feedbackcolor, t, t2)).T
+                       feedbackcolor, fake_feedbackcolor, key_press,
+                       t, t2)).T
         labels = ['Input', 'y', 'yg', 'SecondaryColor',
-                  'FeedbackColor', 'FakeFeedbackColor', 'Time1', 'Time2']
+                  'FeedbackColor', 'FakeFeedbackColor', 'KeyPress',
+                  'Time1', 'Time2']
 
         path = 'trials/'
 
