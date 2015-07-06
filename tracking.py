@@ -112,7 +112,8 @@ class Joystick(object):
 class Target(object):
     def __init__(self, ax, span=60, feedback=False):
         self.x = x[half_w]
-        self.target = ax.plot(self.x, 0, ' o', alpha=0.75, markersize=12, animated=True)[0]
+        self.target = ax.plot(self.x, 0, ' o', color='darkgreen',
+                              alpha=0.75, markersize=12, animated=True)[0]
 
         self.ax = ax
         self.feedback = feedback
@@ -120,10 +121,10 @@ class Target(object):
         self.colors, self.fake_colors = [], []
         self.greens, self.yellows = [], []
         self.span = span  # average over 60 measurements @ 60FPS = 1 second
-        self.fake = pykov.Chain([{( 'green',  'green'): 0.99688064531915932),
-                                  ('yellow', 'yellow'): 0.98290598290598286),
-                                  ('yellow',  'green'): 0.017094017094017096),
-                                  ( 'green', 'yellow'): 0.0031193546808406512})
+        self.fake = pykov.Chain({( 'green',  'green'): 0.99688064531915932,
+                                 ('yellow', 'yellow'): 0.98290598290598286,
+                                 ('yellow',  'green'): 0.017094017094017096,
+                                 ( 'green', 'yellow'): 0.0031193546808406512})
 
         self.fake_walk = self.fake.walk(2000)
 
@@ -169,7 +170,7 @@ class Target(object):
             fake_color = self.fake_walk[step]
             self.target.set_color(fake_color)
         else:
-            self.target.set_color((.75, .75, .75, 1))
+            self.target.set_color('darkgreen')
         self.fake_colors.append(fake_color)
 
 
