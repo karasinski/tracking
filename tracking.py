@@ -1,5 +1,4 @@
 from __future__ import division, print_function
-from array import array
 import os
 import time
 
@@ -42,7 +41,7 @@ class Cursor(object):
                               markersize=12, animated=True)[0]
         self.marker.set_ydata(0)
 
-        self.input = array('f')
+        self.input = []
 
         # Connect
         if use_joystick:
@@ -110,11 +109,14 @@ class Joystick(object):
         return axis
 
 
-class PerfFeedback(object):
+class Target(object):
     def __init__(self, ax, span=60, feedback=False):
+        self.x = x[half_w]
+        self.target = ax.plot(self.x, 0, ' o', alpha=0.75, markersize=12, animated=True)[0]
+
         self.ax = ax
         self.feedback = feedback
-        self.errs = array('f')
+        self.errs = []
         self.colors, self.fake_colors = [], []
         self.greens, self.yellows = [], []
         self.span = span  # average over 60 measurements @ 60FPS = 1 second
@@ -124,8 +126,10 @@ class PerfFeedback(object):
                                  ('yellow', 'yellow'): 0.98329621380846322})
         self.fake_walk = self.fake.walk(2000)
 
+    def update(self, y):
+        self.target.set_ydata(y)
 
-    def update(self, new_measurement):
+    def update_performance(self, new_measurement):
         self.errs.append(new_measurement)
 
         # Update colors
@@ -150,7 +154,7 @@ class PerfFeedback(object):
 
         color = ''
         try:
-            c = {'yellow': yellow, 'green': green}
+            c = {'red': yellow, 'darkgreen': green}
             color = max(c, key=c.get)
         except IndexError:
             color = '#EAEAF2'
@@ -158,37 +162,14 @@ class PerfFeedback(object):
         self.colors.append(color)
         fake_color = color
         if self.feedback == FEEDBACK_ON:
-            self.ax.set_axis_bgcolor(color)
+            self.target.set_color(color)
         elif self.feedback == FEEDBACK_FALSE:
             step = len(self.greens)
             fake_color = self.fake_walk[step]
-            self.ax.set_axis_bgcolor(fake_color)
+            self.target.set_color(fake_color)
         else:
-            self.ax.set_axis_bgcolor((.75, .75, .75, 1))
+            self.target.set_color((.75, .75, .75, 1))
         self.fake_colors.append(fake_color)
-
-
-class Timer(object):
-    def __init__(self, fig, ax, timer_start='', has_timer=False):
-        if has_timer:
-            color = 'black'
-        else:
-            color = fig.get_facecolor()
-
-        # Text location in axes coords
-        self.timer = ax.annotate(str(timer_start), xy=(.5, 0),
-                                 xycoords='axes fraction', fontsize=36,
-                                 textcoords='offset points', ha='right',
-                                 va='bottom', color=color, animated=True)
-
-
-class Target(object):
-    def __init__(self, ax):
-        self.x = x[half_w]
-        self.target = ax.plot(self.x, 0, 'bo', alpha=0.5, markersize=12, animated=True)[0]
-
-    def update(self, y):
-        self.target.set_ydata(y)
 
 
 class Tracker(object):
@@ -225,8 +206,8 @@ class Tracker(object):
         blue = read_png('imgs/BLUE.png')
         green = read_png('imgs/GREEN.png')
 
-        self.teal = ax2.imshow(teal, aspect='equal', animated=True, visible=False)
-        self.blue = ax2.imshow(blue, aspect='equal', animated=True, visible=False)
+        self.teal  = ax2.imshow(teal,  aspect='equal', animated=True, visible=False)
+        self.blue  = ax2.imshow(blue,  aspect='equal', animated=True, visible=False)
         self.green = ax2.imshow(green, aspect='equal', animated=True, visible=False)
 
         if secondary_task:
@@ -246,21 +227,16 @@ class Tracker(object):
         self.status = 0
         self.frame = 0.
         self.FPS = FPS
-        self.timer_start_value = 15
-        self.timer, self.secondary_task_color = array('f'), array('f')
+        self.secondary_task_color = []
         self.end_frame = length * FPS
         self.funckwds = funckwds
         self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
         self.guidance_path = generate_path(trial)
         self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
         self.cursor = Cursor(ax, use_joystick=use_joystick, invert=invert)
-        self.timer_obj = Timer(fig, ax2, timer_start=self.timer_start_value,
-                               has_timer=has_timer)
-        self.has_timer = has_timer
-        self.perffeedback = PerfFeedback(statsax, span=span * FPS, feedback=feedback)
-        self.target = Target(ax)
-        self.ys, self.ygs = array('f'), array('f')
-        self.t, self.t2 = array('d'), array('d')
+        self.target = Target(ax, span=1, feedback=feedback)
+        self.ys, self.ygs = [], []
+        self.t, self.t2 = [], []
         self.current_key = NO_KEY
         self.key_press = []
 
@@ -277,21 +253,7 @@ class Tracker(object):
             self.t.append(t)
 
             err = self.ys[-1] - self.ygs[-1]
-            self.perffeedback.update(err)
-
-            # Set timer value
-            if self.has_timer:
-                try:
-                    timer = self.timer[-1] - 1./self.FPS
-                    if timer < 0:
-                        timer = 0
-                except IndexError:
-                    timer = self.timer_start_value
-
-                self.timer_obj.timer.set_text('%2.0f' % (timer))
-                self.timer.append(timer)
-            else:
-                self.timer.append(np.nan)
+            self.target.update_performance(err)
 
             # Set colors value
             if self.secondary_task:
@@ -353,13 +315,11 @@ class Tracker(object):
             plt.close()
 
         # List of things to be updated
-        return [self.guidance,
-                self.actual,
-                self.patchL, self.patchR,
+        return [# self.guidance,
+                # self.actual,
+                # self.patchL, self.patchR,
                 self.target.target,
                 self.cursor.marker,
-                self.perffeedback.ax,
-                self.timer_obj.timer,
                 self.teal, self.blue, self.green]
 
     def press(self, event):
@@ -382,25 +342,17 @@ class Tracker(object):
                 self.teal.set_visible(True)
                 self.green.set_visible(False)
 
-        # If the timer has ran out, reset the timer on click
-        if event.key is 'left' or event.key is 'right':
-            if self.timer[-1] == 0.:
-                self.timer[-1] = self.timer_start_value
-
     def results(self):
         inp = self.cursor.input
         y = self.ys
         yg = self.ygs
         # timer = self.timer
         secondary_task_color = self.secondary_task_color
-        feedbackcolor = self.perffeedback.colors
-        fake_feedbackcolor = self.perffeedback.fake_colors
+        feedbackcolor = self.target.colors
+        fake_feedbackcolor = self.target.fake_colors
         key_press = self.key_press
         t = self.t
         t2 = self.t2
-        d = np.vstack((inp, y, yg, secondary_task_color,
-                       feedbackcolor, fake_feedbackcolor, key_press,
-                       t, t2)).T
         labels = ['Input', 'y', 'yg', 'SecondaryColor',
                   'FeedbackColor', 'FakeFeedbackColor', 'KeyPress',
                   'Time1', 'Time2']
@@ -416,10 +368,12 @@ class Tracker(object):
         path += str(self.trial) + ' '
         path += str(int(time.time()))
 
-        df = pd.DataFrame(d)
+        df = pd.DataFrame([inp, y, yg, secondary_task_color,
+                           feedbackcolor, fake_feedbackcolor, key_press,
+                           t, t2]).T
         df.columns = labels
-        df.to_csv(path)
-        return d
+        df.to_csv(path, float_format='%.8f')
+        return df
 
 
 def RunTrial(kwds):
@@ -432,13 +386,13 @@ def RunTrial(kwds):
     ax4 = plt.subplot(gs[4, 2])
     statsax = plt.subplot(gs[4, 3])
 
+    fig.set_facecolor([.75, .75, .75, 1])
     for i, ax_i in enumerate([ax, ax2, ax3, ax4, statsax]):
         ax_i.set_xticklabels([], visible=False), ax_i.set_xticks([])
         ax_i.set_yticklabels([], visible=False), ax_i.set_yticks([])
         if i == 0:
             continue
         ax_i.set_axis_bgcolor((.75, .75, .75, 1))
-
     # Merge input options with defaults
     defaults = {'use_joystick': True,
                 'history': 0.,
