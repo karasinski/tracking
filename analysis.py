@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import seaborn as sns
-
+from collections import Counter
+import pykov
 
 from trials import ks
 
@@ -109,6 +110,36 @@ def find_response_times(d):
     results = pd.DataFrame(res)
     results.columns = ['Subject', 'Trial', 'CommID', 'ResponseTime']
     return results
+
+
+def transition_matrix(x):
+    a = x.FeedbackColor.replace(['green', 'yellow'], [1, 0]).values
+    b = np.zeros((2, 2))
+    for (x, y), c in Counter(zip(a, a[1:])).iteritems():
+        b[x - 1, y - 1] = c
+
+    green_green = b[0][0]
+    green_yellow = b[0][1]
+    yellow_green = b[1][0]
+    yellow_yellow = b[1][1]
+
+    chain = pykov.Chain({( 'green', 'yellow'): green_yellow,
+                         ('yellow',  'green'): yellow_green,
+                         ( 'green',  'green'): green_green,
+                         ('yellow', 'yellow'): yellow_yellow})
+    return chain
+
+
+def find_average_markov(df):
+    d = df[['Subject', 'Trial', 'Time', 'FeedbackColor']]
+    d = d.drop_duplicates()
+    d = d.sort(['Subject', 'Trial', 'Time'])
+
+    res = d.groupby(('Subject', 'Trial')).apply(lambda x: transition_matrix(x))
+    r = res.reset_index()[0].sum()
+    r.stochastic()
+    return r
+
 
 trials = load_trials(ks)
 file_paths = get_filepaths('trials/')

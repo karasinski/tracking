@@ -120,10 +120,11 @@ class Target(object):
         self.colors, self.fake_colors = [], []
         self.greens, self.yellows = [], []
         self.span = span  # average over 60 measurements @ 60FPS = 1 second
-        self.fake = pykov.Chain({( 'green', 'yellow'): 0.0027697962776008903,
-                                 ('yellow',  'green'): 0.01670378619153675,
-                                 ( 'green',  'green'): 0.99723020372239912,
-                                 ('yellow', 'yellow'): 0.98329621380846322})
+        self.fake = pykov.Chain([{( 'green',  'green'): 0.99688064531915932),
+                                  ('yellow', 'yellow'): 0.98290598290598286),
+                                  ('yellow',  'green'): 0.017094017094017096),
+                                  ( 'green', 'yellow'): 0.0031193546808406512})
+
         self.fake_walk = self.fake.walk(2000)
 
     def update(self, y):
@@ -346,7 +347,6 @@ class Tracker(object):
         inp = self.cursor.input
         y = self.ys
         yg = self.ygs
-        # timer = self.timer
         secondary_task_color = self.secondary_task_color
         feedbackcolor = self.target.colors
         fake_feedbackcolor = self.target.fake_colors
@@ -409,7 +409,7 @@ def RunTrial(kwds):
     # Configure animation
     tracker = Tracker(fig, ax, ax2, statsax, **kwds)
 
-    # This needs to be assigned so it can hang around to get called below
+    # This needs to be assigned so that plt.show can start the simulation
     anim = FuncAnimation(fig, tracker,
                          interval=15, blit=True, repeat=False)
 
