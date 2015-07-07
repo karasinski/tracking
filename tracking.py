@@ -380,15 +380,14 @@ class Tracker(object):
 def RunTrial(kwds):
     # Create a plot
     fig = plt.figure(figsize=(8, 8))
-    gs = gridspec.GridSpec(5, 4)
+    gs = gridspec.GridSpec(5, 3)
     ax = plt.subplot(gs[0:4, :])
     ax2 = plt.subplot(gs[4, 0])
     ax3 = plt.subplot(gs[4, 1])
-    ax4 = plt.subplot(gs[4, 2])
-    statsax = plt.subplot(gs[4, 3])
+    statsax = plt.subplot(gs[4, 2])
 
     fig.set_facecolor([.75, .75, .75, 1])
-    for i, ax_i in enumerate([ax, ax2, ax3, ax4, statsax]):
+    for i, ax_i in enumerate([ax, ax2, ax3, statsax]):
         ax_i.set_xticklabels([], visible=False), ax_i.set_xticks([])
         ax_i.set_yticklabels([], visible=False), ax_i.set_yticks([])
         if i == 0:
@@ -408,7 +407,7 @@ def RunTrial(kwds):
     kwds = dict(defaults.items() + kwds.items())
 
     # Configure animation
-    tracker = Tracker(fig, ax, ax2, statsax, **kwds)
+    tracker = Tracker(fig, ax, ax3, statsax, **kwds)
 
     # This needs to be assigned so that plt.show can start the simulation
     anim = FuncAnimation(fig, tracker,
