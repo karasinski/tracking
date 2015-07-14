@@ -176,7 +176,7 @@ class Target(object):
 
 class Tracker(object):
     def __init__(self, fig, ax, ax2, statsax,
-                 trial=0,
+                 trial=0, rand_id=0,
                  use_joystick=False,
                  funckwds={},
                  history=1., preview=1.,
@@ -215,7 +215,7 @@ class Tracker(object):
         if secondary_task:
             self.teal.set_visible(True)
 
-        np.random.seed(trial)
+        np.random.seed(rand_id)
         color_times = np.arange(5, length, 5, dtype=np.float)
         color_times += 2 * np.random.rand(len(color_times))
         self.color_times = color_times
@@ -233,7 +233,7 @@ class Tracker(object):
         self.end_frame = length * FPS
         self.funckwds = funckwds
         self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
-        self.guidance_path = generate_path(trial)
+        self.guidance_path = generate_path(rand_id)
         self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
         self.cursor = Cursor(ax, use_joystick=use_joystick, invert=invert)
         self.target = Target(ax, span=1, feedback=feedback)
