@@ -39,22 +39,27 @@ def get_filepaths(directory):
 
 
 def load_data(file_paths):
-    subjs = []
+    days, subjs = [], []
     for path in file_paths:
-        subjs.append(path.split('/')[1])
+        days.append(path.split('/')[1])
+        subjs.append(path.split('/')[2])
     subjs = list(set(subjs))
+    days = list(set(days))
 
     data = pd.DataFrame()
-    for subj in subjs:
-        for path in file_paths:
-            current_subj = path.split('/')[1]
-            if subj == current_subj:
-                trial_number = path.split('/')[2].split(' ')[0]
-                trial = pd.DataFrame.from_csv(path)
-                trial['Subject'] = subj.split('Subject')[1]
-                trial['Trial'] = trial_number
-                trial = trial.reset_index()
-                data = pd.concat((data, trial))
+    for day in days:
+        for subj in subjs:
+            for path in file_paths:
+                current_day = path.split('/')[1]
+                current_subj = path.split('/')[2]
+                if subj == current_subj and day == current_day:
+                    trial_number = path.split('/')[3].split(' ')[0]
+                    trial = pd.DataFrame.from_csv(path)
+                    trial['Day'] = day.split('Day')[1]
+                    trial['Subject'] = subj.split('Subject')[1]
+                    trial['Trial'] = trial_number
+                    trial = trial.reset_index()
+                    data = pd.concat((data, trial))
 
     data = data.convert_objects(convert_numeric=True)
     return data
@@ -70,45 +75,47 @@ def load_trials(ks):
     return trials
 
 
-def find_response_times(d):
-    d.KeyPress = d.groupby(('Subject', 'Trial')).KeyPress.shift(-1)
+def find_response_times(d, t):
+    d.KeyPress = d.groupby(('Day', 'Subject', 'Trial')).KeyPress.shift(-1)
     d['Time'] = (d['index'] + 1) / 60.
-    d = d.sort(['Subject', 'Trial', 'Time'])
+    d = d.sort(['Day', 'Subject', 'Trial', 'Time'])
 
     res = []
     # For each subject and trial with a secondary task
-    for subject in d.Subject.unique():
-        for trial in d.query('Secondary_Task').Trial.unique():
-            # Use the same code as in the experiment to generate start and end times for each light
-            np.random.seed(trial)
-            color_times = np.arange(5, 30, 5, dtype=np.float)
-            color_times += 2 * np.random.rand(len(color_times))
-            color_times = np.append(color_times, 30)
+    for day in d.Day.unique():
+        for subject in d.Subject.unique():
+            for trial in d.query('Secondary_Task').Trial.unique():
+                # Use the same code as in the experiment to generate start and end times for each light
+                rand_id = t.query('Trial == @trial').Rand_Id.tolist()[0]
+                np.random.seed(rand_id)
+                color_times = np.arange(5, 30, 5, dtype=np.float)
+                color_times += 2 * np.random.rand(len(color_times))
+                color_times = np.append(color_times, 30)
 
-            # For each of the five lights
-            for i in range(0, 5):
-                start_time = color_times[i]
-                end_time = color_times[i+1]
-                window_time = end_time - start_time
+                # For each of the five lights
+                for i in range(0, 5):
+                    start_time = color_times[i]
+                    end_time = color_times[i+1]
+                    window_time = end_time - start_time
 
-                # Select data for subject and trial within start and end times for comm light
-                curr = d.query('Subject == @subject and Trial == @trial')
-                curr = curr.query('@start_time < Time <= @end_time')["SecondaryColor"].abs()
+                    # Select data for subject and trial within start and end times for comm light
+                    curr = d.query('Day == @day and Subject == @subject and Trial == @trial')
+                    curr = curr.query('@start_time < Time <= @end_time')["SecondaryColor"].abs()
 
-                # Find maximum time in window
-                n = curr.isnull()
-                clusters = (n != n.shift()).cumsum()
-                response_time = (curr.groupby(clusters).cumsum() * 1/60.).max()
+                    # Find maximum time in window
+                    n = curr.isnull()
+                    clusters = (n != n.shift()).cumsum()
+                    response_time = (curr.groupby(clusters).cumsum() * 1/60.).max()
 
-                # if the response time is approx the available time, they didn't respond
-                if abs(window_time - response_time) < 1/60.:
-                    response_time = np.NaN
+                    # if the response time is approx the available time, they didn't respond
+                    if abs(window_time - response_time) < 1/60.:
+                        response_time = np.NaN
 
-                # append the response time to that light
-                res.append(pd.Series([subject, trial, i + 1, response_time]))
+                    # append the response time to that light
+                    res.append(pd.Series([day, subject, trial, i + 1, response_time]))
 
     results = pd.DataFrame(res)
-    results.columns = ['Subject', 'Trial', 'CommID', 'ResponseTime']
+    results.columns = ['Day', 'Subject', 'Trial', 'CommID', 'ResponseTime']
     return results
 
 
@@ -145,4 +152,4 @@ trials = load_trials(ks)
 file_paths = get_filepaths('trials/')
 data = load_data(file_paths)
 d = data.merge(trials, how='inner').convert_objects(convert_numeric=True)
-df = d.merge(find_response_times(d), how='outer')
+df = d.merge(find_response_times(d, trials), how='outer')
