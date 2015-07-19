@@ -39,29 +39,16 @@ def get_filepaths(directory):
 
 
 def load_data(file_paths):
-    days, subjs = [], []
+    trials = []
     for path in file_paths:
-        days.append(path.split('/')[1])
-        subjs.append(path.split('/')[2])
-    subjs = list(set(subjs))
-    days = list(set(days))
+        trial = pd.DataFrame.from_csv(path)
+        trial['Day'] = path.split('Day')[1].split('/')[0]
+        trial['Subject'] = path.split('Subject')[1].split('/')[0]
+        trial['Trial'] = path.split(' ')[0].split('/')[-1]
+        trial = trial.reset_index()
+        trials.append(trial)
+    data = pd.concat(trials).convert_objects(convert_numeric=True)
 
-    data = pd.DataFrame()
-    for day in days:
-        for subj in subjs:
-            for path in file_paths:
-                current_day = path.split('/')[1]
-                current_subj = path.split('/')[2]
-                if subj == current_subj and day == current_day:
-                    trial_number = path.split('/')[3].split(' ')[0]
-                    trial = pd.DataFrame.from_csv(path)
-                    trial['Day'] = day.split('Day')[1]
-                    trial['Subject'] = subj.split('Subject')[1]
-                    trial['Trial'] = trial_number
-                    trial = trial.reset_index()
-                    data = pd.concat((data, trial))
-
-    data = data.convert_objects(convert_numeric=True)
     return data
 
 
