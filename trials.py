@@ -9,8 +9,8 @@ FEEDBACK_OFF   =  0
 FEEDBACK_FALSE = -1
 
 
-def f(x):
-    return pd.Series((x[0] * 2 * pi * x[1] / 240.) * np.cos(2*pi*x[1] * t / 240. + x[3]))
+def f(x, t):
+    return pd.Series((x[0] * 2*pi*x[1] / 240.) * np.cos(2*pi*x[1] * t / 240. + x[3]))
 
 
 def rescale(x):
@@ -20,7 +20,7 @@ def rescale(x):
     return x - 1
 
 
-def generate_path(trial_number, length=30, fps=60.):
+def generate_path(trial_number, length=240, fps=60):
     # Sweet, Barbara Townsend, and Leonard J. Trejo.
     # "The identification and modeling of visual cue
     # usage in manual control task experiments." (1999).
@@ -43,18 +43,16 @@ def generate_path(trial_number, length=30, fps=60.):
     offsets = np.random.uniform(-pi, pi, (100, 12))
     d[3] = offsets[trial_number]
 
-    sines = d[:-4].apply(f, axis=1).T
+    t = np.linspace(0, length, length * fps)
+    sines = d[:-4].apply(f, args=(t,), axis=1).T
     sines.index = t
     sines = sines.sum(axis=1)
     sines = rescale(sines).tolist()
 
     return sines
 
-fps = 60.
-t = np.linspace(0, 240, 240 * fps)
 
-ks = [
-      # Training
+ks = [# Training
       {'trial': 1,
        'rand_id': 1,
        'feedback': FEEDBACK_ON,
@@ -170,58 +168,3 @@ ks = [
        'feedback': FEEDBACK_ON,
        'secondary_task': False}
       ]
-
-# {'trial': 11,
-#  'feedback': FEEDBACK_OFF,
-#  'secondary_task': True},
-# {'trial': 12,
-#  'feedback': FEEDBACK_FALSE,
-#  'secondary_task': False},
-# {'trial': 13,
-#  'feedback': FEEDBACK_ON,
-#  'secondary_task': True},
-# {'trial': 14,
-#  'feedback': FEEDBACK_OFF,
-#  'secondary_task': False},
-# {'trial': 15,
-#  'feedback': FEEDBACK_FALSE,
-#  'secondary_task': True},
-# {'trial': 16,
-#  'feedback': FEEDBACK_ON,
-#  'secondary_task': False},
-# {'trial': 17,
-#  'feedback': FEEDBACK_OFF,
-#  'secondary_task': True},
-# {'trial': 18,
-#  'feedback': FEEDBACK_FALSE,
-#  'secondary_task': False},
-# {'trial': 19,
-#  'feedback': FEEDBACK_ON,
-#  'secondary_task': True},
-# {'trial': 20,
-#  'feedback': FEEDBACK_OFF,
-#  'secondary_task': False},
-# {'trial': 21,
-#  'feedback': FEEDBACK_FALSE,
-#  'secondary_task': True},
-# {'trial': 22,
-#  'feedback': FEEDBACK_ON,
-#  'secondary_task': False},
-# {'trial': 23,
-#  'feedback': FEEDBACK_OFF,
-#  'secondary_task': True},
-# {'trial': 24,
-#  'feedback': FEEDBACK_FALSE,
-#  'secondary_task': False},
-# {'trial': 25,
-#  'feedback': FEEDBACK_ON,
-#  'secondary_task': True},
-# {'trial': 26,
-#  'feedback': FEEDBACK_OFF,
-#  'secondary_task': False},
-# {'trial': 27,
-#  'feedback': FEEDBACK_FALSE,
-#  'secondary_task': True},
-# {'trial': 28,
-#  'feedback': FEEDBACK_ON,
-#  'secondary_task': False}

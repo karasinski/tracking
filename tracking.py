@@ -128,6 +128,9 @@ class Target(object):
 
         self.fake_walk = self.fake.walk(2000)
 
+    def position(self):
+        return self.target.get_ydata()
+
     def update(self, y):
         self.target.set_ydata(y)
 
@@ -187,30 +190,16 @@ class Tracker(object):
         ax.set_ylim(-1.2, 1.2)
         ax.set_xlim(x[0], x[window])
 
-        # Add blockers on history and preview
-        half_width = ax.get_xlim()[1]/2
-        history_covered = half_width - history * half_width
-        preview_covered = half_width + preview * half_width
-        self.patchL = patches.Rectangle((0, -1.2),
-                                        history_covered, 2.4,
-                                        color='#EAEAF2',
-                                        animated=True)
-        self.patchR = patches.Rectangle((preview_covered, -1.2),
-                                        half_width, 2.4,
-                                        color='#EAEAF2',
-                                        animated=True)
-        ax.add_patch(self.patchL)
-        ax.add_patch(self.patchR)
-
         # Set up secondary task
         self.secondary_task = secondary_task
         teal = read_png('imgs/TEAL.png')
         blue = read_png('imgs/BLUE.png')
         green = read_png('imgs/GREEN.png')
 
-        self.teal  = ax2.imshow(teal,  aspect='equal', animated=True, visible=False)
-        self.blue  = ax2.imshow(blue,  aspect='equal', animated=True, visible=False)
-        self.green = ax2.imshow(green, aspect='equal', animated=True, visible=False)
+        secondary_kwds = dict(aspect='equal', animated=True, visible=False)
+        self.teal = ax2.imshow(teal, **secondary_kwds)
+        self.blue = ax2.imshow(blue, **secondary_kwds)
+        self.green = ax2.imshow(green, **secondary_kwds)
 
         if secondary_task:
             self.teal.set_visible(True)
@@ -232,13 +221,11 @@ class Tracker(object):
         self.secondary_task_color = []
         self.end_frame = length * FPS
         self.funckwds = funckwds
-        self.guidance = ax.plot(x[:window], np.zeros(window), animated=True)[0]
         self.guidance_path = generate_path(rand_id)
-        self.actual = ax.plot(x[:half_w], np.zeros(half_w), animated=True)[0]
         self.cursor = Cursor(ax, use_joystick=use_joystick, invert=invert)
         self.target = Target(ax, span=1, feedback=feedback)
         self.ys, self.ygs = [], []
-        self.t, self.t2 = [], []
+        self.t, self.t_end = [], []
         self.current_key = NO_KEY
         self.key_press = []
 
@@ -249,9 +236,9 @@ class Tracker(object):
             t = time.time()
             self.frame += 1
 
-            # Log cursor position
+            # Log cursor/target position
             self.ys.append(self.cursor.marker.get_ydata())
-            self.ygs.append(self.guidance.get_ydata()[half_w])
+            self.ygs.append(self.target.position())
             self.t.append(t)
 
             err = self.ys[-1] - self.ygs[-1]
@@ -285,26 +272,18 @@ class Tracker(object):
             else:
                 self.secondary_task_color.append(np.nan)
 
-        # Update guidance, plot recent data
-        low = int(self.frame)
-        high = int(window + self.frame)
-        f = self.guidance_path[low:high]
-        self.guidance.set_ydata(f)
-
-        # Send center to target
-        self.target.update(f[int(len(f)/2)])
-
-        recent = np.zeros(half_w)
-        recent[half_w-len(self.ys[-half_w:]):] += self.ys[-half_w:]
-        self.actual.set_ydata(recent)
+        # Update guidance
+        self.guidance_path[int(self.frame + window/2)]
+        position = self.guidance_path[int(self.frame + window/2)]
+        self.target.update(position)
 
         if self.status == INITIALIZED:
-            self.t2.append(time.time())
+            self.t_end.append(time.time())
             self.key_press.append(self.current_key)
             self.current_key = NO_KEY
             try:
                 desired_time = self.frame / self.FPS
-                actual_time = self.t2[-1] - self.t[0]
+                actual_time = self.t_end[-1] - self.t[0]
 
                 time.sleep(desired_time - actual_time)
             except (IndexError, IOError):
@@ -317,10 +296,7 @@ class Tracker(object):
             plt.close()
 
         # List of things to be updated
-        return [# self.guidance,
-                # self.actual,
-                # self.patchL, self.patchR,
-                self.target.target,
+        return [self.target.target,
                 self.cursor.marker,
                 self.teal, self.blue, self.green]
 
@@ -353,7 +329,7 @@ class Tracker(object):
         fake_feedbackcolor = self.target.fake_colors
         key_press = self.key_press
         t = self.t
-        t2 = self.t2
+        t_end = self.t_end
         labels = ['Input', 'y', 'yg', 'SecondaryColor',
                   'FeedbackColor', 'FakeFeedbackColor', 'KeyPress',
                   'Time1', 'Time2']
@@ -371,7 +347,7 @@ class Tracker(object):
 
         df = pd.DataFrame([inp, y, yg, secondary_task_color,
                            feedbackcolor, fake_feedbackcolor, key_press,
-                           t, t2]).T
+                           t, t_end]).T
         df.columns = labels
         df.to_csv(path, float_format='%.8f')
         return df
