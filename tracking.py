@@ -1,6 +1,7 @@
 from __future__ import division, print_function
 import os
 import time
+from datetime import datetime
 
 import matplotlib as mpl
 import matplotlib.gridspec as gridspec
@@ -63,7 +64,7 @@ class Cursor(object):
 
     def update(self, status):
         if self.use_joystick:
-            sensitivity = 30  # larger -> less sensitive
+            sensitivity = 25  # larger -> less sensitive
             velocity = self.joystick.input()
 
             if status == INITIALIZED:
@@ -105,7 +106,7 @@ class Joystick(object):
         pygame.event.get()
 
         # Get axis value
-        axis = self.joystick.get_axis(3)
+        axis = self.joystick.get_axis(0)
         return axis
 
 
@@ -179,13 +180,18 @@ class Target(object):
 
 class Tracker(object):
     def __init__(self, fig, ax, ax2, statsax,
-                 trial=0, rand_id=0,
+                 trial=0, rand_id=None,
                  use_joystick=False,
                  funckwds={},
                  history=1., preview=1.,
                  span=1, length=20, FPS=60,
                  feedback=FEEDBACK_OFF, invert=False,
                  has_timer=False, secondary_task=False):
+
+        # Default rand_id to the trial number
+        if rand_id is None:
+            rand_id = trial
+
         # Set some limits
         ax.set_ylim(-1.2, 1.2)
         ax.set_xlim(x[0], x[window])
@@ -205,8 +211,8 @@ class Tracker(object):
             self.teal.set_visible(True)
 
         np.random.seed(rand_id)
-        color_times = np.arange(5, length, 5, dtype=np.float)
-        color_times += 2 * np.random.rand(len(color_times))
+        color_times = np.arange(5, length, 7, dtype=np.float)
+        color_times += 4 * np.random.rand(len(color_times))
         self.color_times = color_times
 
         # Disable ticks
@@ -302,12 +308,15 @@ class Tracker(object):
 
     def press(self, event):
         # Start the trial when the subject hits the space bar
-        if event.key == ' ':
+        if event.key in ('down', 'escape'):
             if self.status == UNINITIALIZED:
                 self.status = INITIALIZED
-            elif self.status == INITIALIZED:
+                return
+        if event.key == 'escape':
+            if self.status == INITIALIZED:
                 self.status = EXIT
                 plt.close()
+                return
 
         # If the light is on, turn it off
         visible = self.teal.get_visible()
@@ -334,7 +343,7 @@ class Tracker(object):
                   'FeedbackColor', 'FakeFeedbackColor', 'KeyPress',
                   'Time1', 'Time2']
 
-        path = 'trials/'
+        path = 'trials/Subject' + str(subject_number) + '/'
 
         try:
             os.makedirs(path)
@@ -354,8 +363,17 @@ class Tracker(object):
 
 
 def RunTrial(kwds):
+    # Some 'trials' are actually rest periods
+    if kwds.has_key('wait'):
+        now = datetime.datetime.now()
+        then = now + datetime.timedelta(seconds=kwds['wait'])
+        print('Current time is  {}.\nPlease resume at {}.'.format(now, then))
+        time.sleep(kwds['wait'])
+        return
+
     # Create a plot
     fig = plt.figure(figsize=(8, 8))
+    fig.canvas.set_window_title('1D Tracking Experiment')
     gs = gridspec.GridSpec(5, 3)
     ax = plt.subplot(gs[0:4, :])
     ax2 = plt.subplot(gs[4, 0])
@@ -375,11 +393,11 @@ def RunTrial(kwds):
                 'preview': 0.,
                 'span': 1,
                 'funckwds': {},
-                'length': 30,
+                'length': 60,
                 'FPS': 60,
-                'feedback': FEEDBACK_OFF,
-                'invert': True,
-                'secondary_task': False}
+                'feedback': FEEDBACK,
+                'invert': False,
+                'secondary_task': True}
     kwds = dict(defaults.items() + kwds.items())
 
     # Configure animation
@@ -398,6 +416,12 @@ def RunTrial(kwds):
 x = np.linspace(0 * np.pi, 40 * np.pi, 10000)
 window = 1000
 half_w = int(window/2)
+
+subject_number = input('Please input Subject #: ')
+if subject_number % 2 == 0:
+    FEEDBACK = FEEDBACK_OFF
+else:
+    FEEDBACK = FEEDBACK_ON
 
 # Run the experiment
 for k in ks:
