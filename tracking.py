@@ -1,7 +1,7 @@
 from __future__ import division, print_function
 import os
 import time
-from datetime import datetime
+import datetime
 
 import matplotlib as mpl
 import matplotlib.gridspec as gridspec
