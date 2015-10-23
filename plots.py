@@ -1,99 +1,142 @@
-import numpy as np
+import matplotlib
+matplotlib.use('TkAgg')
+import pandas as pd
 import matplotlib.pyplot as plt
-import os
+import seaborn as sns
+import numpy as np
 
 
-def ShortLongColor(subj, d, short_span=60, long_span=10000, save=False):
-    short_g, short_y = GenColors(d, short_span)
-    long_g, long_y = GenColors(d, long_span)
+res = pd.DataFrame.from_csv('res.csv')
+day_subject = res.groupby(('Day', 'Subject')).mean().reset_index()
+day_subject.Feedback = day_subject.Feedback.astype(bool)
+day_subject = day_subject.sort('Learner', ascending=False).query('Learner')
 
-    GenColorPlot(subj, d, short_g, short_y, long_g, long_y, save)
+sns.set(style="ticks")
 
+sns.lmplot(x="Day", y="ResponseTime", hue="Feedback", data=day_subject, x_estimator=np.mean, ci=68)
+plt.grid()
+plt.xlim(0.5, 5.5)
+sns.despine()
+#plt.show()
+plt.title('Category B ($n_{FB}$ = ' + '{}'.format(len(day_subject.query('Feedback').Subject.unique())) + ', $n_{NFB}$ = ' + '{})'.format(len(day_subject.query('not Feedback').Subject.unique())))
+plt.savefig('test_imgs/day_vs_rt_l.pdf')
+plt.close('all')
 
-def GenColors(d, span=60):
-    # Find first and last indexes
-    last = len(d)
-    first = 0
-
-    epsilon = d[:, 1] - d[:, 2]
-
-    greens, yellows = [], []
-    for t in xrange(first, last + 1):
-        if t - span < first:
-            low = first
-        else:
-            low = t - span
-
-        green = abs(epsilon[low:t + 1]) < .05
-        green = green.mean()
-        yellow = abs(epsilon[low:t + 1]) < .15
-        yellow = yellow.mean()
-
-        greens.append(green), yellows.append(yellow)
-
-    return greens, yellows
+sns.lmplot(x="Day", y="RMSE", hue="Feedback", data=day_subject, x_estimator=np.mean, ci=68)
+plt.grid()
+plt.xlim(0.5, 5.5)
+sns.despine()
+#plt.show()
+plt.title('Category B ($n_{FB}$ = ' + '{}'.format(len(day_subject.query('Feedback').Subject.unique())) + ', $n_{NFB}$ = ' + '{})'.format(len(day_subject.query('not Feedback').Subject.unique())))
+plt.savefig('test_imgs/day_vs_rmse_l.pdf')
+plt.close('all')
 
 
-def GenColorPlot(subj, d, short_g, short_y, long_g, long_y, save):
-    time = d[:, 0]
-    epsilon = d[:, 1] - d[:, 2]
+#sns.lmplot(x="Day", y="ResponseTime", hue="Learner", data=day_subject, x_estimator=np.mean, ci=68)
+#plt.grid()
+#plt.xlim(0.5, 5.5)
+#sns.despine()
+##plt.show()
+#plt.savefig('test_imgs/day_vs_rt_learner.pdf')
+#plt.close('all')
 
-    # Flip our percentages
-    short_g = 1 - np.array(short_g)[1:]
-    short_y = 1 - np.array(short_y)[1:]
-    long_g = 1 - np.array(long_g)[1:]
-    long_y = 1 - np.array(long_y)[1:]
-
-    # Plot short duration map
-    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-    ax1.fill_between(time, 0, short_y,       color='r', facecolor='red')
-    ax1.fill_between(time, short_y, short_g, color='y', facecolor='yellow')
-    ax1.fill_between(time, short_g, 1,       color='g', facecolor='green')
-    ax1.set_ylim([0, 1])
-    plt.setp(ax1.get_yticklabels(), visible=False)
-
-    # Add Error plot on top
-    ax1twinx = ax1.twinx()
-    plt.plot(time, abs(epsilon), 'k')
-    ax1twinx.set_ylabel('$|Error|$', color='k')
-    for tl in ax1twinx.get_yticklabels():
-        tl.set_color('k')
-    plt.xlim([time[0], time[-1]])
-    ax1twinx.set_ylim(bottom=0)
-    plt.title(subj)
-
-    # Plot long duration map
-    ax2.fill_between(time, 0, long_y,      color='r', facecolor='red')
-    ax2.fill_between(time, long_y, long_g, color='y', facecolor='yellow')
-    ax2.fill_between(time, long_g, 1,      color='g', facecolor='green')
-    ax2.set_ylim(0, 1)
-    plt.setp(ax2.get_yticklabels(), visible=False)
-    plt.xlim([time[0], time[-1]])
-    ax2.set_xlabel('Time (s)')
-    plt.tight_layout()
-    save_fig('Metric X - ' + subj, save)
+#sns.lmplot(x="Day", y="RMSE", hue="Learner", data=day_subject, x_estimator=np.mean, ci=68)
+#plt.grid()
+#plt.xlim(0.5, 5.5)
+#sns.despine()
+##plt.show()
+#plt.savefig('test_imgs/day_vs_rmse_learner.pdf')
+#plt.close('all')
 
 
-def Performance(d, save=False):
-    t, y, yg = d[:, 0], d[:, 1], d[:, 2]
-    plt.plot(t, y, label='Subject')
-    plt.plot(t, yg, label='Guidance')
-    plt.xlim(0, t[-1])
-    plt.legend()
-    save_fig('performance', save)
+def make_fits(res):
+    def residuals(p, y, x):
+        A = p[0]
+        B = p[1]
+        C = p[2]
+        err = abs(np.array(y - (A * np.exp(-x/B) + C))).mean()
+        return err
 
+    def peval(x, p):
+        return p[0] * np.exp(-x/p[1]) + p[2]
 
-def save_fig(save_name, save):
-    save_name = save_name.replace("$", "") + '.pdf'
+    from scipy.optimize import minimize
 
-    # Show it or save it
-    if not save:
-        plt.show()
-    else:
-        try:
-            os.mkdir('figures')
-        except Exception:
-            pass
+    results = []
+    for s in res.Subject.unique():
+        s = int(s)
+        x = res.query('Subject == @s').ID
+        y = res.query('Subject == @s').RMSE
 
-        plt.savefig('figures/' + save_name, bbox_inches='tight')
-    plt.close()
+        p0 = np.array([0.05, 5, 0.1])
+        plsq = minimize(residuals, p0,
+                        args=(y, x), method='nelder-mead',
+                        options={'maxiter': 1E6, 'maxfev': 1E6,
+                                 'xtol': 1e-8, 'disp': True})
+        r = plsq.x.tolist()
+        r.insert(0, s)
+        results.append(r)
+
+        plt.plot(x, peval(x, plsq.x), x, y, 'o')
+        plt.title('Subject ' + str(s))
+        plt.xlabel('Trial')
+        plt.ylabel('RMSE')
+        plt.ylim(0.05, .2)
+        plt.xlim(0, 100)
+        plt.grid()
+        sns.despine()
+        plt.savefig('test_imgs/' + str(s) + '_fit.pdf')
+        plt.clf()
+
+    results = pd.DataFrame(results)
+    results.columns = ['Subject', 'A', 'B', 'C']
+    results['Feedback'] = results.Subject % 2 == 1
+
+    return results
+
+make_fits(res)
+
+#sns.lmplot(x="Trial", y="RMSE", hue="Feedback", data=res.query('Day == 1'), x_estimator=np.mean, ci=68)
+#plt.grid()
+#plt.xlim(0, 21)
+#plt.ylim(0.05, 0.25)
+#sns.despine()
+##plt.show()
+#plt.savefig('test_imgs/day1_trial_vs_rmse.pdf')
+#plt.close('all')
+
+#sns.lmplot(x="Trial", y="RMSE", hue="Feedback", data=res.query('Day == 2'), x_estimator=np.mean, ci=68)
+#plt.xlim(0, 21)
+#plt.ylim(0.05, 0.25)
+#plt.grid()
+#sns.despine()
+##plt.show()
+#plt.savefig('test_imgs/day2_trial_vs_rmse.pdf')
+#plt.close('all')
+
+#sns.lmplot(x="Trial", y="RMSE", hue="Feedback", data=res.query('Day == 3'), x_estimator=np.mean, ci=68)
+#plt.xlim(0, 21)
+#plt.ylim(0.05, 0.25)
+#plt.grid()
+#sns.despine()
+##plt.show()
+#plt.savefig('test_imgs/day3_trial_vs_rmse.pdf')
+#plt.close('all')
+
+#sns.lmplot(x="Trial", y="RMSE", hue="Feedback", data=res.query('Day == 4'), x_estimator=np.mean, ci=68)
+#plt.xlim(0, 21)
+#plt.ylim(0.05, 0.25)
+#plt.grid()
+#sns.despine()
+##plt.show()
+#plt.savefig('test_imgs/day4_trial_vs_rmse.pdf')
+#plt.close('all')
+
+#sns.lmplot(x="Trial", y="RMSE", hue="Feedback", data=res.query('Day == 5'), x_estimator=np.mean, ci=68)
+#plt.xlim(0, 21)
+#plt.ylim(0.05, 0.25)
+#plt.grid()
+#sns.despine()
+##plt.show()
+#plt.savefig('test_imgs/day5_trial_vs_rmse.pdf')
+#plt.close('all')
